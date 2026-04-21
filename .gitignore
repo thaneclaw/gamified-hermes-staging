@@ -1,0 +1,30 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# env / secrets — keep NOTION_TOKEN and friends out of the repo
+.env
+.env.*
+!.env.example
+
+# persisted server state (producer rundown + roster)
+.data/
+
+# editor / os
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Claude Code — keep project-level launch.json etc. in the repo, but
+# settings.local.json is the user's per-machine permission whitelist.
+.claude/settings.local.json
+
+# build caches
+.vite
+*.tsbuildinfo
+
+# the _handoff directory holds the original artifact + spec for reference;
+# keep it out of deployed bundles but not out of git — remove this line if
+# you'd rather exclude it.
