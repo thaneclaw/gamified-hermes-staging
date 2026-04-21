@@ -1,4 +1,4 @@
-import { ClipboardList, Radio, Smartphone, Tv } from "lucide-react";
+import { ClipboardList, Monitor, Radio, Smartphone, Tv } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useGameStore } from "../state/store";
 
@@ -94,8 +94,10 @@ export function LoginRoute() {
 
       {/* CREW — Host + Producer share the same Show Setup surface under
           the hood; we just route through two different URLs so the page
-          title + chat role differ. Always side-by-side on every width so
-          the two crew seats read as a pair instead of stacking on mobile. */}
+          title + chat role differ. OVERLAY is the OBS browser-source view
+          of the composited stage — producers pop it open to eyeball what
+          the broadcast looks like without booting up OBS. Always
+          three-across on every width so the crew row reads as a set. */}
       <section>
         <div
           className="text-[10px] uppercase opacity-60 mb-2"
@@ -107,9 +109,10 @@ export function LoginRoute() {
         >
           crew
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <CrewTile to="/host" label="HOST" icon={Tv} />
           <CrewTile to="/producer" label="PRODUCER" icon={ClipboardList} />
+          <CrewTile to="/overlay" label="OVERLAY" icon={Monitor} />
         </div>
       </section>
     </main>

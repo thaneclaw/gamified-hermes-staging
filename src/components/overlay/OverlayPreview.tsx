@@ -44,6 +44,15 @@ interface OverlayPreviewProps {
   // When true, render a dummy topic bar even with no live round so the
   // layout editor can show what's being positioned.
   showTopicPlaceholder?: boolean;
+  // When true, skip drawing the studio backdrop so the overlay is fully
+  // transparent except for UI chrome (placards, effects, topic bar, timer,
+  // MVP celebration). The /overlay route flips this via `?transparent=1`
+  // so OBS can composite this UI on top of VDO Ninja video sources that
+  // sit BELOW the browser source — card effects, arrows, placard slams and
+  // MVP winner confetti render over the videos. Use Pattern A (backdrop
+  // baked in) when you want no overlap; Pattern B (transparent) when you
+  // do. See README.md / obs-scene.json for the full setup.
+  transparent?: boolean;
   // Single spotlit contestant id (or null). Lives on the server so the
   // host, producer, and real OBS overlay all agree on who's on the hot
   // seat. Passing `undefined` leaves spotlighting disabled for that
@@ -65,6 +74,7 @@ interface OverlayPreviewProps {
 
 export function OverlayPreview({
   showTopicPlaceholder = false,
+  transparent = false,
   spotlightId,
   onToggleSpotlight,
   editNamesMode = false,
@@ -233,10 +243,13 @@ export function OverlayPreview({
       className="relative w-full overflow-hidden"
       style={{
         aspectRatio: "1654/936",
-        backgroundImage: `url(${BACKDROP_SRC})`,
+        // Pattern B (?transparent=1): skip the backdrop so VDO Ninja feeds
+        // placed below the browser source show through. The .overlay-route
+        // body rule already wipes the rest of the page background.
+        backgroundImage: transparent ? "none" : `url(${BACKDROP_SRC})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
-        border: "1px solid #222",
+        border: transparent ? "none" : "1px solid #222",
       }}
     >
       {/* Scan-line atmosphere */}
