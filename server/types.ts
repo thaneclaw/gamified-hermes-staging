@@ -24,7 +24,10 @@ export interface Round {
   topic: string;
   mode: ModeKey;
   phase: RoundPhase;
-  choices?: [string, string];
+  // Variable-length. biggerdeal/whoyagot use exactly two entries;
+  // whatstheplay can be 2..PLAY_MAX_CHOICES. Server normalizes to the
+  // per-mode bounds in roundUpdate. Mirrors src/state/types.ts.
+  choices?: string[];
 }
 
 export interface BuzzerState {

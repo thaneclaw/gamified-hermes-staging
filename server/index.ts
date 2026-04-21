@@ -1,17 +1,94 @@
+import { createReadStream } from "node:fs";
+import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
+import { extname, join, normalize, resolve } from "node:path";
 import { Server } from "socket.io";
 import { actions, getSnapshot, initState, subscribe } from "./state.ts";
 
 // Port is configurable; Vite's dev-server proxy targets this value via
 // vite.config.ts so the browser can connect to /socket.io on the app's
-// origin and have the WS upgrade forwarded here.
+// origin and have the WS upgrade forwarded here. In production (Fly.io,
+// Docker, …) the same process serves both the static client bundle and
+// Socket.IO on PORT, so the browser connects to window.location.origin
+// with no extra config.
 const PORT = Number(process.env.PORT ?? 3101);
 
-const httpServer = createServer((_req, res) => {
-  // Plain HTTP health check — no static serving in this dev-focused
-  // server. Vite serves the client during development.
-  res.writeHead(200, { "content-type": "text/plain" });
-  res.end("game-show server ok\n");
+// When SERVE_STATIC is set, the HTTP handler also serves the Vite build
+// output out of ./dist. In dev this stays off and Vite runs the client
+// on :5173 with a /socket.io proxy to this server. The Dockerfile flips
+// it on; anything running `npm run dev:server` stays in pure-API mode.
+const SERVE_STATIC = process.env.SERVE_STATIC === "1";
+const DIST_DIR = resolve(process.cwd(), "dist");
+
+const MIME: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".mjs": "application/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".map": "application/json; charset=utf-8",
+};
+
+// Resolve a request path to a file inside DIST_DIR, falling back to
+// index.html so client-side routes (/producer, /host, /overlay, …)
+// render the SPA shell. Paths that would escape DIST_DIR are rejected
+// so a crafted URL can't read arbitrary files off the container.
+async function resolveStatic(urlPath: string): Promise<string | null> {
+  const clean = urlPath.split("?")[0]!.split("#")[0]!;
+  const safe = normalize(clean).replace(/^(\.\.[\/\\])+/, "");
+  const candidate = join(DIST_DIR, safe);
+  if (!candidate.startsWith(DIST_DIR)) return null;
+  try {
+    const s = await stat(candidate);
+    if (s.isFile()) return candidate;
+    if (s.isDirectory()) {
+      const idx = join(candidate, "index.html");
+      const si = await stat(idx);
+      if (si.isFile()) return idx;
+    }
+  } catch {
+    // fall through to SPA index.html
+  }
+  return join(DIST_DIR, "index.html");
+}
+
+const httpServer = createServer(async (req, res) => {
+  const url = req.url ?? "/";
+  // Lightweight liveness/readiness probe for Fly.io's health checks.
+  // Also handy for curling the app to confirm the server is up.
+  if (url === "/healthz") {
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end("ok\n");
+    return;
+  }
+  if (!SERVE_STATIC) {
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.end("game-show server ok\n");
+    return;
+  }
+  const file = await resolveStatic(url);
+  if (!file) {
+    res.writeHead(404, { "content-type": "text/plain" });
+    res.end("not found\n");
+    return;
+  }
+  const ext = extname(file).toLowerCase();
+  const type = MIME[ext] ?? "application/octet-stream";
+  // Hashed asset files under /assets/ get aggressive caching; index.html
+  // (and anything else) stays no-cache so a redeploy takes effect on
+  // next load without clients holding a stale shell.
+  const immutable =
+    url.startsWith("/assets/") && ext !== ".html" ? "public, max-age=31536000, immutable" : "no-cache";
+  res.writeHead(200, { "content-type": type, "cache-control": immutable });
+  createReadStream(file).pipe(res);
 });
 
 const io = new Server(httpServer, {

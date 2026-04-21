@@ -22,8 +22,13 @@ export interface PersistedSettings {
   timerDurationMs?: number;
 }
 
-const FILE = ".data/settings.json";
-const LAYOUT_FILE = ".data/layout.json";
+// Production deploys (Fly.io, Docker, …) point DATA_DIR at a mounted
+// persistent volume — typically /data — so rundown/roster/layout survive
+// restarts and redeploys. Dev leaves it unset and falls back to `.data/`
+// alongside the repo, which is gitignored.
+const DATA_DIR = process.env.DATA_DIR ?? ".data";
+const FILE = `${DATA_DIR}/settings.json`;
+const LAYOUT_FILE = `${DATA_DIR}/layout.json`;
 const DEBOUNCE_MS = 400;
 
 let saveTimer: NodeJS.Timeout | null = null;
