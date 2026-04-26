@@ -86,10 +86,10 @@ Calibration mode (producer panel toggles `?calibrate=1` on overlay) lets these b
 
 ## Current status
 
-- [ ] Phase 1: Repo cleanup — delete legacy Socket.IO server, delete unused routes
-- [ ] Phase 2: Coordinate map + emoji/card config files
-- [ ] Phase 3: VDO.Ninja iframe wrapper library (`src/lib/vdoninja.ts`)
-- [ ] Phase 4: `/play` wrapper route — iframe + emoji panel + card panel
+- [x] Phase 1: Repo cleanup — delete legacy Socket.IO server, delete unused routes
+- [x] Phase 2: Coordinate map + emoji/card config files
+- [x] Phase 3: VDO.Ninja iframe wrapper library (`src/lib/vdoninja.ts`)
+- [x] Phase 4: `/play` wrapper route — iframe + emoji panel + card panel
 - [ ] Phase 5: `/overlay` route — transparent, listens for events, animates
 - [ ] Phase 6: `/producer` route — roster names, reset cards, calibration mode
 - [ ] Phase 7: Cloudflare Pages deploy + custom domain config
