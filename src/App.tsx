@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 import { OverlayRoute } from "./routes/OverlayRoute";
 import { PlayRoute } from "./routes/PlayRoute";
 import { ProducerRoute } from "./routes/ProducerRoute";
@@ -8,13 +8,14 @@ import { ProducerRoute } from "./routes/ProducerRoute";
 //   /overlay    transparent OBS browser source that renders animations
 //   /producer   dockable panel: roster, reset cards, calibration, activity feed
 //
-// No background here — the global default lives in src/index.css on
-// html/body/#root, and /overlay overrides it via `body.overlay-route`.
-// Painting #0a0a0a inline on this wrapper would sit on top of the
-// overlay route's transparent surface and break the OBS composite.
+// The wrapper div drops every layout/utility class on /overlay so nothing
+// can reintroduce a paint-able surface above OBS's compositing layer.
+// Tailwind v4 preflight + utilities like min-h-screen / w-full can plant
+// background-color initial values that swallow the transparent body.
 export default function App() {
+  const isOverlay = useLocation().pathname === "/overlay";
   return (
-    <div className="min-h-screen w-full">
+    <div className={isOverlay ? undefined : "min-h-screen w-full"}>
       <Routes>
         <Route path="/" element={<div>Gamified — pick a route: /play, /overlay, /producer</div>} />
         <Route path="/play" element={<PlayRoute />} />

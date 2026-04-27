@@ -31,8 +31,11 @@ code {
 
 /* Overlay route scoped helper — when OBS loads /overlay as a browser source
    we want the page background fully transparent so only the composited UI
-   draws on top of VDO Ninja's video feeds. The route toggles this class
-   on <body>. */
+   draws on top of VDO Ninja's video feeds. The route toggles
+   `overlay-route` on <body>; we override the global #0a0a0a all the way
+   up the stack to <html> via :has() so the root canvas color doesn't
+   bleed through behind a transparent <body>. */
+html:has(body.overlay-route),
 body.overlay-route,
 body.overlay-route #root {
   background: transparent;
