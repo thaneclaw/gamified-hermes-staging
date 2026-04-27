@@ -90,9 +90,9 @@ Calibration mode (producer panel toggles `?calibrate=1` on overlay) lets these b
 - [x] Phase 2: Coordinate map + emoji/card config files
 - [x] Phase 3: VDO.Ninja iframe wrapper library (`src/lib/vdoninja.ts`)
 - [x] Phase 4: `/play` wrapper route — iframe + emoji panel + card panel
-- [ ] Phase 5: `/overlay` route — transparent, listens for events, animates
-- [ ] Phase 6: `/producer` route — roster names, reset cards, calibration mode
-- [ ] Phase 7: Cloudflare Pages deploy + custom domain config
+- [x] Phase 5: `/overlay` route — transparent, listens for events, animates
+- [x] Phase 6: `/producer` route — roster names, reset cards, calibration mode
+- [x] Phase 7: Cloudflare Pages deploy + custom domain config
 
 Update this checklist as phases complete. Keep it honest — if something's half-done, mark it half-done.
 
