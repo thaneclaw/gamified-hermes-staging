@@ -325,6 +325,7 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
       <aside style={styles.panel}>
         <header style={styles.header}>
           <span style={styles.headerLabel}>{identity.label.toUpperCase()}</span>
+          <span style={styles.wordmark}>GAMIFIED</span>
           <LiveIndicator />
         </header>
 
@@ -349,10 +350,6 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
             />
           ))}
         </section>
-
-        <footer style={styles.footer}>
-          <span style={styles.wordmark}>GAMIFIED</span>
-        </footer>
       </aside>
 
       {activeCard && (
@@ -554,18 +551,22 @@ const styles: Record<string, CSSProperties> = {
     overflowY: "auto",
   },
   header: {
-    display: "flex",
-    justifyContent: "space-between",
+    // Three-cell grid keeps the wordmark perfectly centered regardless
+    // of how wide the guest label or LIVE indicator render.
+    display: "grid",
+    gridTemplateColumns: "1fr auto 1fr",
     alignItems: "center",
+    gap: 8,
     paddingBottom: 10,
     borderBottom: `1px solid ${NEON.panelEdge}`,
   },
   headerLabel: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 800,
     letterSpacing: 1.5,
     color: NEON.cyan,
     textShadow: `0 0 14px ${NEON.cyan}aa`,
+    justifySelf: "start",
   },
   live: {
     display: "inline-flex",
@@ -575,6 +576,7 @@ const styles: Record<string, CSSProperties> = {
     letterSpacing: 1.5,
     color: NEON.pink,
     textShadow: `0 0 8px ${NEON.pink}cc`,
+    justifySelf: "end",
   },
   liveDot: {
     width: 8,
@@ -639,20 +641,16 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 22,
     lineHeight: 1,
   },
-  footer: {
-    marginTop: "auto",
-    display: "flex",
-    justifyContent: "center",
-    paddingTop: 8,
-  },
   wordmark: {
-    fontSize: 12,
-    letterSpacing: 4,
+    fontSize: 13,
+    letterSpacing: 3,
     fontWeight: 800,
     background: `linear-gradient(90deg, ${NEON.pink}, ${NEON.purple} 50%, ${NEON.cyan})`,
     WebkitBackgroundClip: "text",
     backgroundClip: "text",
     color: "transparent",
+    justifySelf: "center",
+    whiteSpace: "nowrap",
   },
   modalScrim: {
     position: "fixed",
