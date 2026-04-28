@@ -39,8 +39,8 @@ const EMOJI_PER_SEAT_CAP = 30;
 /** Emoji float animation length (matches `floatUpOverlay` keyframe). */
 const EMOJI_FLOAT_MS = 1500;
 
-/** Card animation total length (matches `cardOverlayHold` keyframe). */
-const CARD_ANIM_MS = 2800;
+/** Card animation total length (matches the per-card keyframes in index.css). */
+const CARD_ANIM_MS = 2000;
 
 /**
  * Calibration palette — stable per-seat colors so each rect is easy to
@@ -258,148 +258,193 @@ function EmojiFloat({ sprite, tile }: EmojiFloatProps) {
   );
 }
 
+/**
+ * STFU card animation (target tile only, ~2s).
+ *
+ * Layout:
+ *   1. Tile-shake wrapper (transform-only) wraps everything so the whole
+ *      tile region rocks for the first 100ms.
+ *   2. Red radial flash on the tile, fading in fast and decaying.
+ *   3. Dim/desaturate wash holds for the bulk of the animation.
+ *   4. Two-line "SHUT THE / !@#$ UP!!" text slams in via the existing
+ *      `slamIn` keyframe + a multi-layer drop-shadow stack (red + black)
+ *      cribbed from Chris's repo for the same dramatic stamp effect.
+ *
+ * Sized so the longest line ("SHUT THE !@#$ UP!!") fits the 280px-wide
+ * tile with a margin: clamps based on tile.w so calibrated tiles still
+ * read clean.
+ */
 function StfuCard({ tile }: { tile: Tile }) {
+  // 32px at the spec'd 280px width; scales down on smaller tiles.
+  const fontSize = Math.max(18, Math.round(tile.w * 0.115));
   return (
-    <div style={tileBoxStyle(tile)}>
-      {/* Red flash + dim — single layer, transform-only animation. */}
+    <div
+      style={{
+        ...tileBoxStyle(tile),
+        // Wrapper-level shake animation — a couple of fast oscillations.
+        willChange: "transform",
+        animation: "stfuTileShake 360ms ease-in-out",
+      }}
+    >
+      {/* Red flash — fast in, decays. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 50% 40%, rgba(255, 60, 100, 0.85), rgba(180, 0, 30, 0.6))",
+            "radial-gradient(circle at 50% 45%, rgba(255, 60, 100, 0.9), rgba(180, 0, 30, 0.55))",
           mixBlendMode: "multiply",
           opacity: 0,
           willChange: "opacity",
-          animation: "stfuFlash 2800ms ease-out forwards",
+          animation: "stfuFlash 2000ms ease-out forwards",
         }}
       />
-      {/* Persistent dim + desaturate "wash" — separate layer so the flash
-          can ride on top without recomputing both each frame. */}
+      {/* Dim + desaturate wash — uses backdrop-style filter approximation
+          via a dark overlay (the underlying VDO video is in another OBS
+          source so we can't apply CSS filter to it directly; the dark
+          wash reads as "muted" against the red flash on top). */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(20, 0, 8, 0.55)",
+          background: "rgba(15, 0, 8, 0.6)",
           opacity: 0,
           willChange: "opacity",
-          animation: "stfuDim 2800ms ease-out forwards",
+          animation: "stfuDim 2000ms ease-out forwards",
         }}
       />
-      {/* "🤐" zipper-mouth slam over the name area (lower-third of tile). */}
+      {/* The slam text — the hero of the animation. Two lines, line-height
+          0.95 so they hug. Multi-layer drop-shadow gives the stacked
+          stamp look (red offset + black offset behind for depth). */}
       <div
         style={{
           position: "absolute",
           left: "50%",
-          top: "62%",
-          transform: "translate(-50%, -50%) scale(0)",
-          fontSize: Math.round(tile.h * 0.55),
-          lineHeight: 1,
+          top: "50%",
+          transform: "translate(-50%, -50%) scale(3) rotate(-2deg)",
+          opacity: 0,
           willChange: "transform, opacity",
-          animation: "stfuSlam 2800ms cubic-bezier(0.22, 1.2, 0.36, 1) forwards",
-          textShadow: "0 6px 22px rgba(0, 0, 0, 0.7)",
+          animation:
+            "stfuSlamText 2000ms cubic-bezier(0.2, 1.5, 0.4, 1) forwards",
           fontFamily:
-            '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
+            '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif',
+          fontWeight: 900,
+          fontSize,
+          lineHeight: 0.95,
+          letterSpacing: 1,
+          color: "#ffffff",
+          textAlign: "center",
+          whiteSpace: "pre",
+          textShadow: [
+            // Red offset — the brand stamp
+            "3px 3px 0 #ff2e6b",
+            "3px 3px 0 #ff2e6b",
+            // Black offset behind that for depth
+            "5px 5px 0 #000",
+            "5px 5px 0 #000",
+            // Soft outer glow so it pops off the video below
+            "0 0 18px rgba(255, 46, 107, 0.85)",
+          ].join(", "),
         }}
       >
-        {"\u{1F910}"}
+        {"SHUT THE\n!@#$ UP!!"}
       </div>
     </div>
   );
 }
 
+/**
+ * MIC DROP card animation (target tile only, ~2s).
+ *
+ * Layout:
+ *   1. Amber radial flash on the tile (no shake — celebration, not
+ *      disruption).
+ *   2. "MIC DROP" text slams in via slamIn with an amber/black multi-
+ *      layer drop-shadow stack matching the STFU treatment.
+ *   3. Mic emoji falls from the top of the tile and lands beside the
+ *      text with a small bounce.
+ *   4. Tile edge gets a gentle gold inset glow ring that pulses opacity.
+ */
 function MicDropCard({ tile }: { tile: Tile }) {
-  const micSize = Math.round(tile.w * 0.42);
+  const fontSize = Math.max(20, Math.round(tile.w * 0.13));
+  const micSize = Math.max(28, Math.round(tile.w * 0.18));
   return (
     <div style={tileBoxStyle(tile)}>
-      {/* Spotlight beam — gold cone fading downward through the tile. */}
+      {/* Amber flash — quick in, holds soft, then fades. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "linear-gradient(180deg, rgba(255, 200, 60, 0) 0%, rgba(255, 200, 60, 0.55) 35%, rgba(255, 160, 0, 0.4) 70%, rgba(255, 160, 0, 0) 100%)",
+            "radial-gradient(circle at 50% 45%, rgba(255, 200, 60, 0.78), rgba(255, 160, 0, 0.4))",
+          mixBlendMode: "screen",
           opacity: 0,
           willChange: "opacity",
-          animation: "micSpotlight 2800ms ease-out forwards",
+          animation: "micFlash 2000ms ease-out forwards",
         }}
       />
-      {/* Mic SVG falling from the top with a small bounce. */}
+      {/* Gold ring around the tile edge — pulses gently while the text holds. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          boxShadow:
+            "inset 0 0 32px rgba(255, 200, 60, 0.85), inset 0 0 80px rgba(255, 200, 60, 0.45)",
+          opacity: 0,
+          willChange: "opacity",
+          animation: "micGlowRing 2000ms ease-out forwards",
+        }}
+      />
+      {/* Mic emoji falling from the top — lands a touch left of the text. */}
       <div
         style={{
           position: "absolute",
           left: "50%",
-          top: "10%",
-          transform: "translate(-50%, -200%) rotate(-12deg)",
+          top: "50%",
+          transform: "translate(calc(-50% - 2.5em), -200%) rotate(-12deg)",
           willChange: "transform, opacity",
-          animation: "micFall 2800ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+          animation:
+            "micEmojiFall 2000ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+          fontSize: micSize,
+          lineHeight: 1,
+          fontFamily:
+            '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
+          filter: "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.55))",
         }}
       >
-        <MicSvg size={micSize} />
+        {"\u{1F3A4}"}
       </div>
-      {/* Crown-glow ring around the lower placard area. */}
+      {/* Slam text — single line "MIC DROP", amber-stamped. */}
       <div
         style={{
           position: "absolute",
           left: "50%",
-          top: "70%",
-          width: tile.w * 0.7,
-          height: tile.w * 0.7,
-          transform: "translate(-50%, -50%) scale(0.4)",
-          borderRadius: "50%",
-          border: "3px solid rgba(255, 200, 60, 0.85)",
-          boxShadow:
-            "0 0 32px rgba(255, 200, 60, 0.7), inset 0 0 28px rgba(255, 200, 60, 0.5)",
+          top: "50%",
+          transform: "translate(-50%, -50%) scale(3) rotate(-2deg)",
           opacity: 0,
           willChange: "transform, opacity",
-          animation: "micCrown 2800ms ease-out forwards",
+          animation:
+            "micSlamText 2000ms cubic-bezier(0.2, 1.5, 0.4, 1) forwards",
+          fontFamily:
+            '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif',
+          fontWeight: 900,
+          fontSize,
+          letterSpacing: 1.5,
+          color: "#ffffff",
+          textAlign: "center",
+          whiteSpace: "nowrap",
+          textShadow: [
+            "3px 3px 0 #ffcb45",
+            "3px 3px 0 #ffcb45",
+            "5px 5px 0 #000",
+            "5px 5px 0 #000",
+            "0 0 18px rgba(255, 203, 69, 0.85)",
+          ].join(", "),
         }}
-      />
+      >
+        MIC DROP
+      </div>
     </div>
-  );
-}
-
-function MicSvg({ size }: { size: number }) {
-  // Hand-rolled mic glyph — keeps the bundle small and avoids loading an
-  // external icon font at OBS browser-source startup.
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 64 96"
-      aria-hidden="true"
-      style={{
-        filter: "drop-shadow(0 8px 18px rgba(0, 0, 0, 0.6))",
-      }}
-    >
-      <defs>
-        <linearGradient id="micGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fff6c2" />
-          <stop offset="0.45" stopColor="#ffcb45" />
-          <stop offset="1" stopColor="#a86a00" />
-        </linearGradient>
-      </defs>
-      {/* capsule */}
-      <rect x="20" y="6" width="24" height="46" rx="12" fill="url(#micGrad)" />
-      {/* grill highlight lines */}
-      <g stroke="rgba(60, 30, 0, 0.45)" strokeWidth="1.5">
-        <line x1="22" y1="18" x2="42" y2="18" />
-        <line x1="22" y1="26" x2="42" y2="26" />
-        <line x1="22" y1="34" x2="42" y2="34" />
-        <line x1="22" y1="42" x2="42" y2="42" />
-      </g>
-      {/* yoke */}
-      <path
-        d="M14 44 Q 14 64 32 64 Q 50 64 50 44"
-        stroke="#d8a230"
-        strokeWidth="3"
-        fill="none"
-      />
-      {/* stem */}
-      <rect x="30" y="62" width="4" height="20" fill="#d8a230" />
-      {/* base */}
-      <rect x="22" y="82" width="20" height="6" rx="2" fill="#d8a230" />
-    </svg>
   );
 }
 

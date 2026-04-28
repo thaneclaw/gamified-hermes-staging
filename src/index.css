@@ -130,52 +130,92 @@ body.overlay-route #root {
   }
 }
 
-/* STFU card — red flash, dim wash, zipper-mouth slam. All three layers
-   share the same 2.8s timeline (~2.5s held + ~0.3s fade) per spec §3.2. */
-@keyframes stfuFlash {
-  0% { opacity: 0; }
-  6% { opacity: 1; }
-  20% { opacity: 0.45; }
-  85% { opacity: 0.3; }
-  100% { opacity: 0; }
-}
-@keyframes stfuDim {
-  0% { opacity: 0; }
-  10% { opacity: 1; }
-  85% { opacity: 1; }
-  100% { opacity: 0; }
-}
-@keyframes stfuSlam {
-  0% { transform: translate(-50%, -50%) scale(2.6) rotate(-6deg); opacity: 0; }
-  18% { transform: translate(-50%, -50%) scale(1.18) rotate(-2deg); opacity: 1; }
-  28% { transform: translate(-50%, -50%) scale(0.96) rotate(-2deg); opacity: 1; }
-  85% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1.05) rotate(-2deg); opacity: 0; }
+/* ── Card animations (target tile only, ~2s) ─────────────────────────────
+   v1.1 redesign: drop the zipper-mouth glyph + spotlight cone in favour
+   of slammed text with stacked drop-shadow stamps (red for STFU, amber
+   for MIC DROP). Energy borrowed from Chris's repo's giant slam moment
+   but constrained to the target tile rather than going fullscreen. */
+
+/* Tile-shake on STFU — fast oscillations under 360ms so it lands inside
+   the 100ms "disruption" window before the text comes in. translate-only. */
+@keyframes stfuTileShake {
+  0%, 100% { transform: translate(0, 0); }
+  15% { transform: translate(-8px, 2px); }
+  30% { transform: translate(7px, -2px); }
+  50% { transform: translate(-5px, 1px); }
+  70% { transform: translate(4px, -1px); }
+  85% { transform: translate(-2px, 0); }
 }
 
-/* MIC DROP — gold spotlight fades in, mic falls + bounces, crown ring
-   pulses out around the placard. Shared 2.8s timeline. */
-@keyframes micSpotlight {
+/* Red flash — fast in (~80ms), decays through the hold, fades cleanly. */
+@keyframes stfuFlash {
   0% { opacity: 0; }
-  18% { opacity: 1; }
+  4% { opacity: 1; }
+  18% { opacity: 0.5; }
+  80% { opacity: 0.35; }
+  100% { opacity: 0; }
+}
+
+/* Dim wash — fades in over the first ~80ms, holds, fades out over the last 200ms. */
+@keyframes stfuDim {
+  0% { opacity: 0; }
+  6% { opacity: 1; }
   85% { opacity: 1; }
   100% { opacity: 0; }
 }
-@keyframes micFall {
-  0% { transform: translate(-50%, -200%) rotate(-12deg); opacity: 0; }
-  10% { opacity: 1; }
-  35% { transform: translate(-50%, 30%) rotate(8deg); opacity: 1; }
-  45% { transform: translate(-50%, -8%) rotate(-4deg); opacity: 1; }
-  55% { transform: translate(-50%, 12%) rotate(2deg); opacity: 1; }
-  85% { transform: translate(-50%, 0%) rotate(0deg); opacity: 1; }
-  100% { transform: translate(-50%, -20%) rotate(0deg); opacity: 0; }
+
+/* STFU slam text — 100ms delay (the shake plays first), then a hard
+   slamIn with a slight rotate, hold, gentle fade. */
+@keyframes stfuSlamText {
+  0%, 5% { transform: translate(-50%, -50%) scale(3) rotate(-2deg); opacity: 0; }
+  20% { transform: translate(-50%, -50%) scale(0.92) rotate(-2deg); opacity: 1; }
+  28% { transform: translate(-50%, -50%) scale(1.04) rotate(-2deg); opacity: 1; }
+  35% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
+  80% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.04) rotate(-2deg); opacity: 0; }
 }
-@keyframes micCrown {
-  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
-  35% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
-  60% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.7; }
-  85% { transform: translate(-50%, -50%) scale(1.05); opacity: 0.6; }
-  100% { transform: translate(-50%, -50%) scale(1.15); opacity: 0; }
+
+/* MIC DROP — amber flash on the tile (no shake). */
+@keyframes micFlash {
+  0% { opacity: 0; }
+  5% { opacity: 1; }
+  20% { opacity: 0.55; }
+  80% { opacity: 0.4; }
+  100% { opacity: 0; }
+}
+
+/* Gold inset glow ring around the tile edge — pulses gently while the
+   text holds. Opacity-only so it stays GPU-cheap. */
+@keyframes micGlowRing {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  45% { opacity: 0.7; }
+  60% { opacity: 1; }
+  80% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+/* MIC DROP slam text — same cadence as STFU's text, amber-stamped. */
+@keyframes micSlamText {
+  0%, 5% { transform: translate(-50%, -50%) scale(3) rotate(-2deg); opacity: 0; }
+  20% { transform: translate(-50%, -50%) scale(0.92) rotate(-2deg); opacity: 1; }
+  28% { transform: translate(-50%, -50%) scale(1.04) rotate(-2deg); opacity: 1; }
+  35% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
+  80% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1.04) rotate(-2deg); opacity: 0; }
+}
+
+/* Mic emoji falling in from above the tile, bouncing to land beside the
+   text. Lateral offset is encoded in the inline transform; the keyframe
+   only animates Y + rotate + opacity. */
+@keyframes micEmojiFall {
+  0% { transform: translate(calc(-50% - 2.5em), -200%) rotate(-12deg); opacity: 0; }
+  10% { opacity: 1; }
+  30% { transform: translate(calc(-50% - 2.5em), 30%) rotate(10deg); opacity: 1; }
+  40% { transform: translate(calc(-50% - 2.5em), -10%) rotate(-4deg); opacity: 1; }
+  50% { transform: translate(calc(-50% - 2.5em), 8%) rotate(2deg); opacity: 1; }
+  60%, 80% { transform: translate(calc(-50% - 2.5em), 0%) rotate(0deg); opacity: 1; }
+  100% { transform: translate(calc(-50% - 2.5em), -20%) rotate(0deg); opacity: 0; }
 }
 
 @keyframes pulseDot {
