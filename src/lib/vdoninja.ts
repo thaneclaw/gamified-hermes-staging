@@ -18,7 +18,7 @@
  * Reference: https://docs.vdo.ninja/guides/iframe-api-documentation
  */
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import type { CardId } from "../cards";
 import type { Emoji } from "../emojis";
 import type { SeatId, TileMap } from "../coords";
@@ -290,20 +290,34 @@ export interface UseVdoNinjaResult {
  * exposes a `send` helper bound to the iframe ref. The consuming
  * component renders the actual `<iframe ref={iframeRef} src={...} />`.
  *
- * The listener registers once per `onMessage` identity, so wrap callbacks
- * in `useCallback` if you want to avoid resubscribing on every render.
+ * Pin the callback in a ref so the window listener is registered exactly
+ * ONCE for the component's lifetime. The previous shape resubscribed on
+ * every callback identity change — and since callers commonly depend on
+ * objects that get rebuilt each render (e.g. a derived `identity`), the
+ * listener was effectively flapping on/off on every render. Inbound
+ * broadcasts that arrived during the gap (or during React 18 StrictMode's
+ * dev-only double-invoke) were silently dropped — manifesting as the
+ * wrapper appearing to ignore producer cardReset events. The ref pattern
+ * mirrors what `useVdoNinjaChat` already does for chat reception.
  */
 export function useVdoNinja(opts: UseVdoNinjaOptions = {}): UseVdoNinjaResult {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const { onMessage } = opts;
-
+  const cbRef = useRef(onMessage);
   useEffect(() => {
-    if (!onMessage) return;
-    return onData(iframeRef, onMessage);
+    cbRef.current = onMessage;
   }, [onMessage]);
 
-  return {
-    iframeRef,
-    send: (payload) => sendData(iframeRef, payload),
-  };
+  useEffect(() => {
+    return onData(iframeRef, (payload) => cbRef.current?.(payload));
+  }, []);
+
+  // Memoized so consuming components can list `send` in useEffect deps
+  // without triggering churn on every render. iframeRef is stable.
+  const send = useCallback(
+    (payload: EventPayload) => sendData(iframeRef, payload),
+    [],
+  );
+
+  return { iframeRef, send };
 }

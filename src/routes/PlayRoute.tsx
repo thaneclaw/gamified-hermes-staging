@@ -176,11 +176,18 @@ export function PlayRoute() {
   const push = search.get("push") ?? "";
   const label = search.get("label") ?? (isHost ? "Host" : "Guest");
 
-  const identity: Identity | null = isHost
-    ? { kind: "host", label }
-    : seat
-      ? { kind: "guest", seat, label }
-      : null;
+  // Memoize so PlaySurface gets a stable identity reference across renders;
+  // a fresh object every render would invalidate every downstream useCallback
+  // and useMemo that depends on it.
+  const identity = useMemo<Identity | null>(
+    () =>
+      isHost
+        ? { kind: "host", label }
+        : seat
+          ? { kind: "guest", seat, label }
+          : null,
+    [isHost, seat, label],
+  );
 
   if (!identity) {
     return <MissingParamsHelp />;
