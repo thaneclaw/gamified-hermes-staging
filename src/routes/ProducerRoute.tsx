@@ -27,6 +27,32 @@ const SEAT_ORDER: readonly SeatId[] = ["L1", "L2", "L3", "R1", "R2", "R3"];
 
 // Same key used by /play so both surfaces stay in sync via localStorage.
 const ROSTER_STORAGE_KEY = "gamified.roster.v1";
+/**
+ * Producer-side persistence of the latest reset epoch. We re-announce
+ * this on every wrapper getResetEpoch request so a wrapper that joined
+ * after the most recent reset still picks it up and clears its counters.
+ */
+const RESET_EPOCH_STORAGE_KEY = "gamified.resetEpoch.v1";
+
+function loadResetEpoch(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = window.localStorage.getItem(RESET_EPOCH_STORAGE_KEY);
+    const n = raw == null ? 0 : Number.parseInt(raw, 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveResetEpoch(epoch: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(RESET_EPOCH_STORAGE_KEY, String(epoch));
+  } catch {
+    // ignore
+  }
+}
 
 function defaultRoster(): Record<SeatId, string> {
   return {
@@ -102,7 +128,9 @@ function formatEvent(
     case "rosterUpdate":
       return "Roster updated";
     case "cardReset":
-      return "Cards reset";
+      return `Cards reset (epoch ${msg.resetEpoch})`;
+    case "getResetEpoch":
+      return "Wrapper requested resetEpoch";
     case "calibration":
       return "Calibration updated";
     default:
@@ -137,8 +165,15 @@ export function ProducerRoute() {
   const [tiles, setTiles] = useState<TileMap>(loadCalibratedTiles);
   const [feed, setFeed] = useState<readonly FeedEntry[]>([]);
   const feedIdRef = useRef(0);
+  // Latest reset epoch we've fired (persisted) — re-announced on demand so
+  // wrappers that join after a reset still catch up.
+  const resetEpochRef = useRef<number>(loadResetEpoch());
   const rosterDirty =
     SEAT_ORDER.some((s) => draftRoster[s] !== roster[s]);
+
+  // Forward-declared sender so the message handler can re-broadcast on
+  // demand without depending on `send` (which would create a cycle).
+  const sendRef = useRef<((p: EventPayload) => void) | null>(null);
 
   const onMessage = useCallback(
     (msg: EventPayload) => {
@@ -160,11 +195,31 @@ export function ProducerRoute() {
       if (msg.type === "calibration") {
         setTiles(msg.tiles);
       }
+      // A wrapper just mounted; re-announce the latest reset epoch so it
+      // can catch up on any reset that fired before it was open.
+      if (msg.type === "getResetEpoch" && resetEpochRef.current > 0) {
+        if (import.meta.env.DEV) {
+          console.log(
+            "[producer] wrapper requested resetEpoch; re-broadcasting",
+            resetEpochRef.current,
+          );
+        }
+        sendRef.current?.({
+          type: "cardReset",
+          resetEpoch: resetEpochRef.current,
+          ts: Date.now(),
+        });
+      }
     },
     [roster],
   );
 
   const { iframeRef, send } = useVdoNinja({ onMessage });
+  // Keep the ref in sync so the listener (which captures `send` via the ref
+  // to avoid a re-subscribe loop) always calls the live sender.
+  useEffect(() => {
+    sendRef.current = send;
+  }, [send]);
   const overlayUrl = useMemo(() => buildOverlayDataOnlyUrl(), []);
 
   const saveRoster = useCallback(() => {
@@ -180,7 +235,10 @@ export function ProducerRoute() {
 
   const fireResetCards = useCallback(() => {
     if (!window.confirm("Reset all cards for all guests?")) return;
-    send({ type: "cardReset", ts: Date.now() });
+    const epoch = Date.now();
+    resetEpochRef.current = epoch;
+    saveResetEpoch(epoch);
+    send({ type: "cardReset", resetEpoch: epoch, ts: epoch });
   }, [send]);
 
   const updateTile = useCallback(

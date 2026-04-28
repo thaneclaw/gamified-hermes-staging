@@ -161,9 +161,28 @@ export interface RosterUpdateEvent {
   ts: number;
 }
 
-/** Producer fired "Reset cards" — wrappers zero counters and re-enable. */
+/**
+ * Producer fired "Reset cards". Wrappers compare `resetEpoch` against
+ * the highest one they've already seen (persisted) and clear their
+ * per-card counters only when the incoming epoch is newer. That makes
+ * resets idempotent and survives a wrapper refresh — the producer can
+ * re-broadcast on demand and a stale wrapper picks it up correctly.
+ */
 export interface CardResetEvent {
   type: "cardReset";
+  /** Monotonically increasing producer-side identifier (Date.now()). */
+  resetEpoch: number;
+  ts: number;
+}
+
+/**
+ * Wrapper-on-mount sync request. The wrapper missed any broadcasts
+ * fired before it joined the room, so it asks every other peer to
+ * (re-)announce the current resetEpoch. Producer responds with a fresh
+ * CardResetEvent carrying the latest epoch from its localStorage.
+ */
+export interface GetResetEpochEvent {
+  type: "getResetEpoch";
   ts: number;
 }
 
@@ -180,6 +199,7 @@ export type EventPayload =
   | CardPlayEvent
   | RosterUpdateEvent
   | CardResetEvent
+  | GetResetEpochEvent
   | CalibrationEvent;
 
 // ── Iframe data channel ─────────────────────────────────────────────────
@@ -214,6 +234,9 @@ export function sendData(
     sendData: { [NAMESPACE]: payload },
     type: "pcs",
   };
+  if (import.meta.env.DEV) {
+    console.log("[vdoninja] →", payload.type, payload);
+  }
   win.postMessage(msg, "*");
 }
 
@@ -239,6 +262,9 @@ export function onData(
       | undefined;
     const payload = data?.dataReceived?.[NAMESPACE];
     if (!payload || typeof payload !== "object") return;
+    if (import.meta.env.DEV) {
+      console.log("[vdoninja] ←", payload.type, payload);
+    }
     callback(payload);
   };
   window.addEventListener("message", handler);

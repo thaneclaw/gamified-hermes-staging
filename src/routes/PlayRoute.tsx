@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useState, type CSSProperties } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import { CARDS, type Card, type CardId } from "../cards";
 import { EMOJIS, type Emoji } from "../emojis";
@@ -25,6 +32,34 @@ function parseSeat(raw: string | null): SeatId | null {
 
 const ROSTER_STORAGE_KEY = "gamified.roster.v1";
 const CARD_USES_STORAGE_PREFIX = "gamified.cards.uses.";
+/**
+ * Wrapper-side memo of the highest reset epoch we've ever applied. If a
+ * CardResetEvent (or our mount-time getResetEpoch reply) carries a higher
+ * epoch, we clear card counters and bump this. That makes resets idempotent
+ * AND survive a wrapper refresh — without this the wrapper would simply
+ * miss any reset broadcast that fired while it was closed.
+ */
+const LAST_RESET_SEEN_KEY = "gamified.lastResetSeen.v1";
+
+function loadLastResetSeen(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = window.localStorage.getItem(LAST_RESET_SEEN_KEY);
+    const n = raw == null ? 0 : Number.parseInt(raw, 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveLastResetSeen(epoch: number): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(LAST_RESET_SEEN_KEY, String(epoch));
+  } catch {
+    // ignore
+  }
+}
 
 function defaultRoster(): Record<SeatId, string> {
   return {
@@ -165,6 +200,8 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
   );
   const [activeCard, setActiveCard] = useState<Card | null>(null);
   const [emojiPulse, setEmojiPulse] = useState<Emoji | null>(null);
+  // Tracked in a ref so the listener can compare without a re-render loop.
+  const lastResetSeenRef = useRef<number>(loadLastResetSeen());
 
   // Memoize callback so the effect inside useVdoNinja doesn't resubscribe.
   const onMessage = useCallback(
@@ -175,13 +212,32 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
           saveRoster(msg.names);
           break;
         case "cardReset": {
+          // Idempotent: only act when the producer's epoch is strictly newer
+          // than the highest one we've already applied. A re-broadcast (e.g.
+          // in response to our mount-time getResetEpoch) will no-op cleanly.
+          if (msg.resetEpoch <= lastResetSeenRef.current) {
+            if (import.meta.env.DEV) {
+              console.log(
+                "[play] ignoring stale cardReset",
+                msg.resetEpoch,
+                "<= seen",
+                lastResetSeenRef.current,
+              );
+            }
+            break;
+          }
+          lastResetSeenRef.current = msg.resetEpoch;
+          saveLastResetSeen(msg.resetEpoch);
           const zero = { stfu: 0, micdrop: 0 };
           setCardUses(zero);
           saveCardUses(identity, zero);
+          if (import.meta.env.DEV) {
+            console.log("[play] applied cardReset epoch=", msg.resetEpoch);
+          }
           break;
         }
-        // Other event types (emoji, cardPlay, calibration) are for the
-        // overlay or other peers — the wrapper itself doesn't react.
+        // Other event types (emoji, cardPlay, calibration, getResetEpoch)
+        // are for the overlay/producer — the wrapper itself doesn't react.
         default:
           break;
       }
@@ -190,6 +246,16 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
   );
 
   const { iframeRef, send } = useVdoNinja({ onMessage });
+
+  // On mount, ask the producer to (re)announce the latest reset epoch so
+  // we can catch up on any reset broadcast that fired while we were closed.
+  // Small delay so the data channel is actually established first.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      send({ type: "getResetEpoch", ts: Date.now() });
+    }, 1500);
+    return () => window.clearTimeout(id);
+  }, [send]);
 
   const iframeSrc = useMemo(
     () =>
