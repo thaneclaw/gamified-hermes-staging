@@ -23,3 +23,26 @@ export const EMOJIS = [
   "\u{1F44E}", // 👎
   "\u{1F4A9}", // 💩
 ] as const;
+
+/**
+ * Curated emoji set surfaced in the in-wrapper chat composer's emoji
+ * picker. Distinct from EMOJIS (which are the show's reaction floats):
+ * these are conversational and never broadcast as overlay events.
+ */
+export const CHAT_EMOJIS = [
+  "\u{1F600}", // 😀
+  "\u{1F602}", // 😂
+  "\u{1F62D}", // 😭
+  "\u{1F60D}", // 😍
+  "\u{1F914}", // 🤔
+  "\u{1F44F}", // 👏
+  "\u{1F64F}", // 🙏
+  "\u{2764}\u{FE0F}", // ❤️
+  "\u{1F525}", // 🔥
+  "\u{1F389}", // 🎉
+  "\u{2728}", // ✨
+  "\u{1F60E}", // 😎
+  "\u{1F923}", // 🤣
+  "\u{1F440}", // 👀
+  "\u{1F480}", // 💀
+] as const;

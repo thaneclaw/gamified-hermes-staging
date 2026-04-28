@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CARDS, type Card, type CardId } from "../cards";
-import { EMOJIS, type Emoji } from "../emojis";
+import { CHAT_EMOJIS, EMOJIS, type Emoji } from "../emojis";
 import type { SeatId } from "../coords";
 import {
   buildHostIframeUrl,
@@ -17,6 +17,7 @@ import {
   type EventPayload,
   type EventSender,
 } from "../lib/vdoninja";
+import { useVdoNinjaChat, type ChatMessage } from "../lib/vdoninjaChat";
 
 // ── seat / role plumbing ─────────────────────────────────────────────────
 
@@ -202,6 +203,9 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
   const [emojiPulse, setEmojiPulse] = useState<Emoji | null>(null);
   // Tracked in a ref so the listener can compare without a re-render loop.
   const lastResetSeenRef = useRef<number>(loadLastResetSeen());
+  const [chatMessages, setChatMessages] = useState<readonly ChatMessage[]>([]);
+  const chatIdRef = useRef(0);
+  const nextChatId = () => `c${chatIdRef.current++}`;
 
   // Memoize callback so the effect inside useVdoNinja doesn't resubscribe.
   const onMessage = useCallback(
@@ -256,6 +260,43 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
     }, 1500);
     return () => window.clearTimeout(id);
   }, [send]);
+
+  // Inbound chat lives on a separate channel from `sendData` (see
+  // src/lib/vdoninjaChat.ts). Append remote messages to the panel
+  // (newest at bottom). Local sends are appended optimistically below
+  // because the iframe doesn't reliably echo own messages.
+  const onChatIncoming = useCallback(
+    (msg: { msg: string; label: string; ts: number }) => {
+      setChatMessages((prev) => [
+        ...prev,
+        { id: nextChatId(), source: "remote", ...msg },
+      ]);
+    },
+    [],
+  );
+  const { send: sendChat } = useVdoNinjaChat(iframeRef, onChatIncoming);
+
+  const sendChatMessage = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) return false;
+      const ok = sendChat(trimmed);
+      if (ok) {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            id: nextChatId(),
+            source: "local",
+            label: identity.label,
+            msg: trimmed,
+            ts: Date.now(),
+          },
+        ]);
+      }
+      return ok;
+    },
+    [identity.label, sendChat],
+  );
 
   const iframeSrc = useMemo(
     () =>
@@ -350,6 +391,8 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
             />
           ))}
         </section>
+
+        <ChatPanel messages={chatMessages} onSend={sendChatMessage} />
       </aside>
 
       {activeCard && (
@@ -433,6 +476,138 @@ function EmojiButton({ emoji, pulsing, onClick }: EmojiButtonProps) {
     >
       <span style={styles.emojiGlyph}>{emoji}</span>
     </button>
+  );
+}
+
+// ── chat panel ───────────────────────────────────────────────────────────
+
+interface ChatPanelProps {
+  messages: readonly ChatMessage[];
+  onSend: (text: string) => boolean;
+}
+
+function ChatPanel({ messages, onSend }: ChatPanelProps) {
+  const [draft, setDraft] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll the message list to the bottom whenever a new message
+  // arrives. Direct scrollTop write — no animation, just stick to bottom.
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
+
+  const submit = () => {
+    if (!draft.trim()) return;
+    if (onSend(draft)) setDraft("");
+  };
+
+  const insertEmoji = (e: string) => {
+    const input = inputRef.current;
+    if (!input) {
+      setDraft((d) => d + e);
+      setPickerOpen(false);
+      return;
+    }
+    const start = input.selectionStart ?? draft.length;
+    const end = input.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + e + draft.slice(end);
+    setDraft(next);
+    setPickerOpen(false);
+    // Restore caret right after the inserted glyph (next tick to let the
+    // controlled input re-render with the new value first).
+    requestAnimationFrame(() => {
+      input.focus();
+      const caret = start + e.length;
+      input.setSelectionRange(caret, caret);
+    });
+  };
+
+  return (
+    <section style={styles.chatSection}>
+      <div style={styles.chatHeader}>CHAT</div>
+      <div ref={listRef} style={styles.chatList}>
+        {messages.length === 0 ? (
+          <div style={styles.chatEmpty}>
+            Quiet so far — say something.
+          </div>
+        ) : (
+          messages.map((m) => (
+            <div key={m.id} style={styles.chatRow}>
+              <span
+                style={{
+                  ...styles.chatLabel,
+                  color: m.source === "local" ? NEON.pink : NEON.cyan,
+                }}
+              >
+                {m.source === "local" ? "you" : m.label}
+              </span>
+              <span style={styles.chatBody}>{m.msg}</span>
+            </div>
+          ))
+        )}
+      </div>
+      <div style={styles.chatComposerWrap}>
+        <div style={styles.chatComposer}>
+          <input
+            ref={inputRef}
+            type="text"
+            value={draft}
+            placeholder="Type a message…"
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submit();
+              } else if (e.key === "Escape" && pickerOpen) {
+                setPickerOpen(false);
+              }
+            }}
+            style={styles.chatInput}
+            spellCheck
+          />
+          <button
+            type="button"
+            onClick={() => setPickerOpen((v) => !v)}
+            aria-label="Emoji picker"
+            style={{
+              ...styles.chatIconBtn,
+              color: pickerOpen ? NEON.cyan : NEON.textDim,
+            }}
+          >
+            {"\u{1F642}"}
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!draft.trim()}
+            style={{
+              ...styles.chatSendBtn,
+              opacity: draft.trim() ? 1 : 0.5,
+              cursor: draft.trim() ? "pointer" : "default",
+            }}
+          >
+            Send
+          </button>
+        </div>
+        {pickerOpen && (
+          <div style={styles.chatPicker} role="menu">
+            {CHAT_EMOJIS.map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => insertEmoji(e)}
+                style={styles.chatPickerBtn}
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -640,6 +815,129 @@ const styles: Record<string, CSSProperties> = {
   emojiGlyph: {
     fontSize: 22,
     lineHeight: 1,
+  },
+  // ── chat panel ────────────────────────────────────────────────────────
+  chatSection: {
+    // Take all remaining vertical space below cards + emojis. The panel
+    // itself is `display:flex; flex-direction:column`, so flex:1 here
+    // makes the chat list expand instead of overflowing the viewport.
+    flex: "1 1 auto",
+    minHeight: 200,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    paddingTop: 8,
+    borderTop: `1px solid ${NEON.panelEdge}`,
+  },
+  chatHeader: {
+    fontSize: 10,
+    letterSpacing: 2,
+    fontWeight: 800,
+    color: NEON.textDim,
+    textTransform: "uppercase",
+  },
+  chatList: {
+    flex: "1 1 auto",
+    minHeight: 80,
+    overflowY: "auto",
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    padding: "4px 2px 4px 0",
+  },
+  chatRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: 6,
+    fontSize: 12,
+    lineHeight: 1.35,
+  },
+  chatLabel: {
+    fontWeight: 800,
+    letterSpacing: 0.5,
+    flex: "0 0 auto",
+  },
+  chatBody: {
+    color: NEON.text,
+    overflowWrap: "anywhere",
+    flex: "1 1 auto",
+  },
+  chatEmpty: {
+    fontSize: 11,
+    color: NEON.textDim,
+    fontStyle: "italic",
+  },
+  chatComposerWrap: {
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  chatComposer: {
+    display: "flex",
+    alignItems: "stretch",
+    gap: 4,
+  },
+  chatInput: {
+    appearance: "none",
+    flex: "1 1 auto",
+    minWidth: 0,
+    background: "#13131c",
+    border: `1px solid ${NEON.panelEdge}`,
+    borderRadius: 8,
+    padding: "7px 10px",
+    color: NEON.text,
+    fontSize: 13,
+    fontFamily: "inherit",
+    outline: "none",
+  },
+  chatIconBtn: {
+    appearance: "none",
+    background: "#13131c",
+    border: `1px solid ${NEON.panelEdge}`,
+    borderRadius: 8,
+    cursor: "pointer",
+    fontSize: 16,
+    width: 32,
+    fontFamily: "inherit",
+  },
+  chatSendBtn: {
+    appearance: "none",
+    background: NEON.cyan,
+    color: NEON.bg,
+    border: 0,
+    borderRadius: 8,
+    padding: "0 12px",
+    fontSize: 11,
+    fontWeight: 800,
+    letterSpacing: 1.2,
+    fontFamily: "inherit",
+    textTransform: "uppercase",
+  },
+  chatPicker: {
+    position: "absolute",
+    bottom: "calc(100% + 6px)",
+    right: 0,
+    background: NEON.panelBg,
+    border: `1px solid ${NEON.panelEdge}`,
+    borderRadius: 10,
+    padding: 6,
+    boxShadow: `0 8px 22px rgba(0,0,0,0.55), 0 0 18px ${NEON.purple}33`,
+    display: "grid",
+    gridTemplateColumns: "repeat(5, 1fr)",
+    gap: 4,
+    zIndex: 20,
+  },
+  chatPickerBtn: {
+    appearance: "none",
+    background: "transparent",
+    border: 0,
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 18,
+    width: 32,
+    height: 32,
+    fontFamily: "inherit",
   },
   wordmark: {
     fontSize: 13,
