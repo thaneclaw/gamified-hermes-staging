@@ -332,21 +332,6 @@ export function ProducerRoute() {
         </div>
       </Section>
 
-      <Section title="Reset cards">
-        <div style={styles.row}>
-          <button
-            type="button"
-            onClick={fireResetCards}
-            style={{ ...styles.primaryButton, background: NEON.red, color: "#fff" }}
-          >
-            Reset all cards
-          </button>
-          <span style={styles.hint}>
-            Zeroes per-guest counters and re-enables both card buttons in every wrapper.
-          </span>
-        </div>
-      </Section>
-
       <Section title="Calibration">
         <label style={styles.toggle}>
           <input
@@ -383,6 +368,21 @@ export function ProducerRoute() {
             </button>
           </div>
         )}
+      </Section>
+
+      <Section title="Reset cards">
+        <div style={styles.row}>
+          <button
+            type="button"
+            onClick={fireResetCards}
+            style={{ ...styles.primaryButton, background: NEON.red, color: "#fff" }}
+          >
+            Reset all cards
+          </button>
+          <span style={styles.hint}>
+            Zeroes per-guest counters and re-enables both card buttons in every wrapper.
+          </span>
+        </div>
       </Section>
 
       <Section title="Activity feed">
