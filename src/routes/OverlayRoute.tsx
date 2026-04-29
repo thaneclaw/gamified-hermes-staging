@@ -512,14 +512,19 @@ function CalibrationGrid({ tiles }: { tiles: TileMap }) {
 }
 
 function tileBoxStyle(tile: Tile): CSSProperties {
-  const inset = Math.round(tile.w * 0.06); // inset for white border + nameplate chrome
-  const r = Math.round(Math.min(tile.w, tile.h) * 0.20); // ~20% proportional border radius
+  // The tiles from coords.ts represent the full bounding box including border
+  // chrome and nameplate. We overlay JUST the inner video area.
+  const scale = Math.min(tile.w, tile.h) / 280;
+  const sideInset = Math.round(10 * scale);      // white border on left / right
+  const topInset = Math.round(8 * scale);         // white border top
+  const bottomInset = Math.round(22 * scale);     // nameplate below video
+  const r = Math.round(55 * scale);               // iOS-like squircle radius
   return {
     position: "absolute",
-    left: tile.x + inset,
-    top: tile.y + inset,
-    width: tile.w - inset * 2,
-    height: tile.h - inset * 2,
+    left: tile.x + sideInset,
+    top: tile.y + topInset,
+    width: tile.w - sideInset * 2,
+    height: tile.h - topInset - bottomInset,
     overflow: "hidden",
     pointerEvents: "none",
     borderRadius: r,
