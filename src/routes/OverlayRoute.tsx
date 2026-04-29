@@ -283,49 +283,46 @@ function StfuCard({ tile }: { tile: Tile }) {
   return (
     <div
       style={{
-        ...tileBoxStyle(tile),
+        ...cardBoxStyle(tile),
         // Wrapper-level shake animation — a couple of fast oscillations.
         willChange: "transform",
         animation: "stfuTileShake 360ms ease-in-out",
       }}
     >
-      {/* Red inset glow ring around tile edge — pulses 0 → 0.8 → 0. */}
+      {/* Heavy dim wash — darkens the tile so the red layers read on any bg */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(10, 4, 8, 0.82)",
+          opacity: 0,
+          willChange: "opacity",
+          animation: "stfuDim 2500ms ease-out forwards",
+        }}
+      />
+      {/* Red inset glow ring — stronger halo at edges */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           boxShadow:
-            "inset 0 0 30px #ff2e6b, inset 0 0 60px rgba(255, 46, 107, 0.65)",
+            "inset 0 0 50px #ff2e6b, inset 0 0 100px rgba(255, 46, 107, 0.8)",
           opacity: 0,
           willChange: "opacity",
           animation: "stfuGlowRing 2500ms ease-in-out forwards",
         }}
       />
-      {/* Aggressive red flash — fast in, decays through the hold. */}
+      {/* Red halo flash — screen blend like mic drop, transparent center */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 50% 45%, rgba(255, 46, 107, 0.95), rgba(180, 0, 30, 0.7))",
-          mixBlendMode: "multiply",
+            "radial-gradient(circle at 50% 50%, transparent 30%, rgba(255, 46, 107, 0.6) 65%, rgba(255, 20, 60, 0.35) 100%)",
+          mixBlendMode: "screen",
           opacity: 0,
           willChange: "opacity",
           animation: "stfuFlash 2500ms ease-out forwards",
-        }}
-      />
-      {/* Heavy dim wash — near-black overlay reads as "brightness 0.25
-          saturate 0.3" against the underlying video composited below in
-          OBS. CSS filters can't reach the video (it lives in another
-          OBS source) so we fake the look with opacity. */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(8, 0, 4, 0.85)",
-          opacity: 0,
-          willChange: "opacity",
-          animation: "stfuDim 2500ms ease-out forwards",
         }}
       />
       {/* The slam text — heavier drop-shadow stack for v1.2 intensity. */}
@@ -395,7 +392,7 @@ function MicDropCard({ tile }: { tile: Tile }) {
   const startY = -Math.round(tile.h * 1.2);
   const endY = Math.round(tile.h * 1.2);
   return (
-    <div style={tileBoxStyle(tile)}>
+    <div style={cardBoxStyle(tile)}>
       {/* Brief green flash — t=0–200ms, then fades. */}
       <div
         style={{
@@ -409,7 +406,7 @@ function MicDropCard({ tile }: { tile: Tile }) {
           animation: "micFlash 2500ms ease-out forwards",
         }}
       />
-      {/* Green inset glow ring around tile edge — pulses 0 → 0.8 → 0. */}
+      {/* Green inset glow ring — pulses 0 → 0.8 → 0 across the full duration. */}
       <div
         style={{
           position: "absolute",
@@ -446,13 +443,12 @@ function MicDropCard({ tile }: { tile: Tile }) {
       >
         {"\u{1F3A4}"}
       </div>
-      {/* Slam text — anchored near the TOP of the tile so the falling
-          mic passes behind/through the rest of the tile area. */}
+      {/* Slam text — centered in the tile like STFU */}
       <div
         style={{
           position: "absolute",
           left: "50%",
-          top: "18%",
+          top: "50%",
           transform: "translate(-50%, -50%) scale(3) rotate(-2deg)",
           opacity: 0,
           willChange: "transform, opacity",
@@ -516,6 +512,10 @@ function CalibrationGrid({ tiles }: { tiles: TileMap }) {
 }
 
 function tileBoxStyle(tile: Tile): CSSProperties {
+  // OBS layering handles z-order: overlays cover cams, nameplates/top
+  // graphics sit above. We fill the FULL tile area with rounded edges
+  // matching VDO.Ninja's own tile chrome.
+  const r = Math.round(Math.min(tile.w, tile.h) * 0.22);
   return {
     position: "absolute",
     left: tile.x,
@@ -524,6 +524,27 @@ function tileBoxStyle(tile: Tile): CSSProperties {
     height: tile.h,
     overflow: "hidden",
     pointerEvents: "none",
+    borderRadius: r,
+  };
+}
+
+/**
+ * Card animation box — 5px bleed all around to prevent glow/shadow clipping
+ * from the tile's `overflow: hidden`. The blur ring and slam text need
+ * breathing room at the edges.
+ */
+function cardBoxStyle(tile: Tile): CSSProperties {
+  const bleed = 5;
+  const r = Math.round(Math.min(tile.w, tile.h) * 0.22);
+  return {
+    position: "absolute",
+    left: tile.x - bleed,
+    top: tile.y - bleed,
+    width: tile.w + bleed * 2,
+    height: tile.h + bleed * 2,
+    overflow: "hidden",
+    pointerEvents: "none",
+    borderRadius: r + bleed,
   };
 }
 
