@@ -96,41 +96,38 @@ export interface GuestIframeParams {
 /**
  * Broadcast-mode flags layered on top of {@link GUEST_ROOM_PARAMS} for
  * the GUEST iframe only. Together they make the guest see only the
- * producer's composited stream (the director) and remove all other
- * guests from the visible layout — so a 4th guest joining doesn't
- * shrink the producer's stream to make room.
+ * producer's composited stream (via explicit `view=TBSqrdw`).
  *
- *   broadcast    → guests see only the director's stream; other guests
- *                  are removed from the layout (auto-discovers the
- *                  director, no need to hardcode `view=TBSqrdw`).
- *                  Audio between guests is unaffected.
+ *   view=TBSqrdw → locks the guest to the producer's actual video stream.
+ *                    Replaces `broadcast` (which auto-discovers the
+ *                    director) because broadcast breaks when extra
+ *                    codirectors (overlay, producer, chat) are in the room.
  *   showlist=0   → hides VDO.Ninja's participant sidebar.
  *   minipreview  → small self-view so guests can confirm their cam.
- *
- * `roombitrate=0` (in GUEST_ROOM_PARAMS) stays as a bandwidth safety
- * belt — it works in conjunction with `broadcast`, not as a substitute.
+ *   roombitrate=0 → inbound bandwidth safety belt; works in conjunction
+ *                     with `view` so other guests don't compete for layout.
  *
  * Reference: https://docs.vdo.ninja/advanced-settings/video-parameters/broadcast
  */
-const GUEST_BROADCAST_PARAMS: Array<readonly [string, string | null]> = [
-  ["broadcast", null],
+const GUEST_VIEW_PARAMS: Array<readonly [string, string | null]> = [
+  ["view", PRODUCER_VIEW_ID],
   ["showlist", "0"],
   ["minipreview", null],
 ];
 
 /**
- * Builds the iframe `src` for a guest's wrapper. Layers the broadcast-
+ * Builds the iframe `src` for a guest's wrapper. Layers the viewing
  * mode flags on top of the room constants so the guest sees only the
- * producer's composited stream (auto-discovered) — and other guests
- * joining doesn't shrink that view.
+ * producer's composited stream (via explicit `view=TBSqrdw`).
  *
- * Does **not** add an explicit `view=` — `&broadcast` auto-targets the
- * director's stream.
+ * Using `view=` instead of `broadcast` because when codirector data-only
+ * peers (overlay, producer, chat) are in the room, `broadcast` can
+ * accidentally route guests to the wrong feed.
  */
 export function buildIframeUrl(params: GuestIframeParams): string {
   const all = [
     ...GUEST_ROOM_PARAMS,
-    ...GUEST_BROADCAST_PARAMS,
+    ...GUEST_VIEW_PARAMS,
     ["push", params.push] as const,
     ["label", params.label] as const,
   ];
@@ -158,18 +155,15 @@ export function buildHostIframeUrl(params: GuestIframeParams): string {
  * so they:
  *   - Publish AUDIO only — `videodevice=0` skips the camera prompt
  *     entirely. They still get a microphone prompt for the mic.
- *   - Use the same broadcast-mode viewing flags as guests so the
- *     producer's composited stream auto-fills the iframe and other
- *     guests don't shrink it. Audio between editor and guests stays
- *     live for off-air coordination.
- *
- * Resulting URL pattern matches buildIframeUrl (broadcast + showlist=0
- * + minipreview + roombitrate=0) plus `videodevice=0`.
+ *   - View the producer's composited stream via `view=TBSqrdw` (same
+ *     as guests) so the producer's video auto-fills the iframe.
+ *   - Audio between editor and guests stays live for off-air
+ *     coordination.
  */
 export function buildEditorIframeUrl(params: GuestIframeParams): string {
   const all = [
     ...GUEST_ROOM_PARAMS,
-    ["broadcast", null] as const,
+    ["view", PRODUCER_VIEW_ID] as const,
     ["showlist", "0"] as const,
     ["minipreview", null] as const,
     ["videodevice", "0"] as const,
@@ -180,21 +174,22 @@ export function buildEditorIframeUrl(params: GuestIframeParams): string {
 }
 
 /**
- * Builds the URL the OBS overlay browser source loads. Joins the room
- * as a data-only peer (no video/audio) and listens for our broadcasts.
+ * Builds the URL the OBS overlay browser source loads. Joins as a
+ * data-only codirector so it can broadcast sendData to all guests AND
+ * receive their events. This is the ONLY place codirector is needed.
  */
 export function buildOverlayDataOnlyUrl(): string {
   return `${VDO_NINJA_BASE}?${toQueryString(OVERLAY_PARAMS)}`;
 }
 
 /**
- * Builds the URL for the standalone chat browser source. Same data-only
- * room join as the overlay — chat rides VDO.Ninja's built-in chat
- * infrastructure, not the data channel. The label is cosmetic for debug.
+ * Builds the URL for the standalone chat browser source. Simple room
+ * join — no codirector, no dataonly. VDO.Ninja's built-in chat works
+ * over the room's websocket, not our P2P data channel.
  */
 export function buildChatOnlyUrl(params: { push: string; label: string }): string {
   const all = [
-    ...OVERLAY_PARAMS,
+    ...GUEST_ROOM_PARAMS,
     ["push", params.push] as const,
     ["label", params.label] as const,
   ];
