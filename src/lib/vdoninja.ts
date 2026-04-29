@@ -148,6 +148,33 @@ export function buildHostIframeUrl(params: GuestIframeParams): string {
 }
 
 /**
+ * Builds the iframe `src` for the editor's wrapper. The editor is
+ * backstage crew (records the backup, doesn't participate on camera),
+ * so they:
+ *   - Publish AUDIO only — `videodevice=0` skips the camera prompt
+ *     entirely. They still get a microphone prompt for the mic.
+ *   - Use the same broadcast-mode viewing flags as guests so the
+ *     producer's composited stream auto-fills the iframe and other
+ *     guests don't shrink it. Audio between editor and guests stays
+ *     live for off-air coordination.
+ *
+ * Resulting URL pattern matches buildIframeUrl (broadcast + showlist=0
+ * + minipreview + roombitrate=0) plus `videodevice=0`.
+ */
+export function buildEditorIframeUrl(params: GuestIframeParams): string {
+  const all = [
+    ...GUEST_ROOM_PARAMS,
+    ["broadcast", null] as const,
+    ["showlist", "0"] as const,
+    ["minipreview", null] as const,
+    ["videodevice", "0"] as const,
+    ["push", params.push] as const,
+    ["label", params.label] as const,
+  ];
+  return `${VDO_NINJA_BASE}?${toQueryString(all)}`;
+}
+
+/**
  * Builds the URL the OBS overlay browser source loads. Joins the room
  * as a data-only peer (no video/audio) and listens for our broadcasts.
  */

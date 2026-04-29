@@ -11,6 +11,7 @@ import { CARDS, type Card, type CardId } from "../cards";
 import { CHAT_EMOJIS, EMOJIS, type Emoji } from "../emojis";
 import type { SeatId } from "../coords";
 import {
+  buildEditorIframeUrl,
   buildHostIframeUrl,
   buildIframeUrl,
   useVdoNinja,
@@ -102,10 +103,13 @@ function saveRoster(roster: Record<SeatId, string>): void {
 
 type Identity =
   | { kind: "guest"; seat: SeatId; label: string }
-  | { kind: "host"; label: string };
+  | { kind: "host"; label: string }
+  | { kind: "editor"; label: string };
 
 function cardUsesKey(identity: Identity): string {
-  return `${CARD_USES_STORAGE_PREFIX}${identity.kind === "host" ? "host" : identity.seat}`;
+  if (identity.kind === "host") return `${CARD_USES_STORAGE_PREFIX}host`;
+  if (identity.kind === "editor") return `${CARD_USES_STORAGE_PREFIX}editor`;
+  return `${CARD_USES_STORAGE_PREFIX}${identity.seat}`;
 }
 
 function loadCardUses(identity: Identity): Record<CardId, number> {
@@ -136,9 +140,13 @@ function saveCardUses(
 }
 
 function senderFromIdentity(identity: Identity): EventSender {
-  return identity.kind === "host"
-    ? { kind: "host", label: identity.label }
-    : { kind: "guest", seat: identity.seat, label: identity.label };
+  if (identity.kind === "guest") {
+    return { kind: "guest", seat: identity.seat, label: identity.label };
+  }
+  // Editor and host both broadcast as "host"-kind so existing overlay/
+  // producer code paths (which only switch on guest vs. host) keep
+  // working. The label still distinguishes them in feed entries.
+  return { kind: "host", label: identity.label };
 }
 
 // ── visual constants (gamified neon palette, dark theme) ─────────────────
@@ -172,21 +180,26 @@ export function PlayRoute() {
   const [search] = useSearchParams();
   const role = search.get("role");
   const isHost = role === "host";
+  const isEditor = role === "editor";
   const seat = parseSeat(search.get("seat"));
   const push = search.get("push") ?? "";
-  const label = search.get("label") ?? (isHost ? "Host" : "Guest");
+  const label =
+    search.get("label") ??
+    (isHost ? "Host" : isEditor ? "Editor" : "Guest");
 
   // Memoize so PlaySurface gets a stable identity reference across renders;
   // a fresh object every render would invalidate every downstream useCallback
   // and useMemo that depends on it.
   const identity = useMemo<Identity | null>(
     () =>
-      isHost
-        ? { kind: "host", label }
-        : seat
-          ? { kind: "guest", seat, label }
-          : null,
-    [isHost, seat, label],
+      isEditor
+        ? { kind: "editor", label }
+        : isHost
+          ? { kind: "host", label }
+          : seat
+            ? { kind: "guest", seat, label }
+            : null,
+    [isEditor, isHost, seat, label],
   );
 
   if (!identity) {
@@ -305,13 +318,20 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
     [identity.label, sendChat],
   );
 
-  const iframeSrc = useMemo(
-    () =>
-      identity.kind === "host"
-        ? buildHostIframeUrl({ push, label: identity.label })
-        : buildIframeUrl({ push, label: identity.label }),
-    [identity, push],
-  );
+  const iframeSrc = useMemo(() => {
+    if (identity.kind === "host") {
+      return buildHostIframeUrl({ push, label: identity.label });
+    }
+    if (identity.kind === "editor") {
+      return buildEditorIframeUrl({ push, label: identity.label });
+    }
+    return buildIframeUrl({ push, label: identity.label });
+  }, [identity, push]);
+
+  // Editors are backstage crew — no cards, no emoji broadcasts. Their
+  // panel is chat-only so they can coordinate with the room without
+  // appearing in any guest-targetable surface.
+  const showCardsAndEmojis = identity.kind !== "editor";
 
   const fireEmoji = useCallback(
     (emoji: Emoji) => {
@@ -350,11 +370,13 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
     [identity, send],
   );
 
-  // Build the target list — every seat except the local guest, with the
-  // host omitted entirely (host is never card-targetable per spec §3.1).
+  // Build the target list — every seat except the local guest. Host
+  // and editor are never card-targetable per spec §3.1 (and editor was
+  // added in v1.2 with the same crew exclusion). When the local user
+  // is host or editor, no seat is theirs, so all six seats appear.
   const targets = useMemo(() => {
     return SEAT_ORDER
-      .filter((s) => identity.kind === "host" || s !== identity.seat)
+      .filter((s) => identity.kind !== "guest" || s !== identity.seat)
       .map((s) => ({ seat: s, label: roster[s] }));
   }, [identity, roster]);
 
@@ -377,27 +399,31 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
           <LiveIndicator />
         </header>
 
-        <section style={styles.cardRow}>
-          {CARDS.map((card) => (
-            <CardButton
-              key={card.id}
-              card={card}
-              uses={cardUses[card.id]}
-              onClick={() => setActiveCard(card)}
-            />
-          ))}
-        </section>
+        {showCardsAndEmojis && (
+          <>
+            <section style={styles.cardRow}>
+              {CARDS.map((card) => (
+                <CardButton
+                  key={card.id}
+                  card={card}
+                  uses={cardUses[card.id]}
+                  onClick={() => setActiveCard(card)}
+                />
+              ))}
+            </section>
 
-        <section style={styles.emojiGrid}>
-          {EMOJIS.map((emoji) => (
-            <EmojiButton
-              key={emoji}
-              emoji={emoji}
-              pulsing={emojiPulse === emoji}
-              onClick={() => fireEmoji(emoji)}
-            />
-          ))}
-        </section>
+            <section style={styles.emojiGrid}>
+              {EMOJIS.map((emoji) => (
+                <EmojiButton
+                  key={emoji}
+                  emoji={emoji}
+                  pulsing={emojiPulse === emoji}
+                  onClick={() => fireEmoji(emoji)}
+                />
+              ))}
+            </section>
+          </>
+        )}
 
         <ChatPanel messages={chatMessages} onSend={sendChatMessage} />
       </aside>
@@ -687,7 +713,9 @@ function MissingParamsHelp() {
         <h1 style={{ color: NEON.pink, marginBottom: 8 }}>Missing URL params</h1>
         <p style={{ color: NEON.textDim, maxWidth: 520, lineHeight: 1.5 }}>
           The /play wrapper needs <code>?seat=1..6&amp;push=&lt;id&gt;&amp;label=&lt;name&gt;</code>{" "}
-          for guests, or <code>?role=host&amp;push=&lt;id&gt;&amp;label=&lt;name&gt;</code> for the host.
+          for guests, <code>?role=host&amp;push=&lt;id&gt;&amp;label=&lt;name&gt;</code> for the
+          host, or <code>?role=editor&amp;push=&lt;id&gt;&amp;label=&lt;name&gt;</code> for
+          the editor (chat-only, audio publish).
         </p>
       </div>
     </div>
