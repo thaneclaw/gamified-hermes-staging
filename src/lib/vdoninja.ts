@@ -187,6 +187,20 @@ export function buildOverlayDataOnlyUrl(): string {
   return `${VDO_NINJA_BASE}?${toQueryString(OVERLAY_PARAMS)}`;
 }
 
+/**
+ * Builds the URL for the standalone chat browser source. Same data-only
+ * room join as the overlay — chat rides VDO.Ninja's built-in chat
+ * infrastructure, not the data channel. The label is cosmetic for debug.
+ */
+export function buildChatOnlyUrl(params: { push: string; label: string }): string {
+  const all = [
+    ...OVERLAY_PARAMS,
+    ["push", params.push] as const,
+    ["label", params.label] as const,
+  ];
+  return `${VDO_NINJA_BASE}?${toQueryString(all)}`;
+}
+
 // ── Event payloads ──────────────────────────────────────────────────────
 
 /** Source of an outgoing event — either a numbered guest seat or the host. */
