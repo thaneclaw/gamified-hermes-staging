@@ -300,7 +300,7 @@ export function sendData(
 ): void {
   const win = iframeRef.current?.contentWindow;
   if (!win) {
-    console.warn("[vdoninja] sendData called before iframe mounted");
+    console.warn("[vdoninja] sendData: iframe contentWindow is null —", payload.type, "not sent");
     return;
   }
   const msg: OutboundMessage = {
@@ -326,9 +326,18 @@ export function onData(
   callback: (payload: EventPayload) => void,
 ): () => void {
   const handler = (event: MessageEvent) => {
-    // Guard: only accept messages from our iframe (window.parent === us).
-    const expectedSource = iframeRef.current?.contentWindow;
-    if (expectedSource && event.source !== expectedSource) return;
+    // Soft source check: if the iframe is present, verify the origin looks
+    // like VDO.Ninja. We skip strict event.source === contentWindow because
+    // VDO.Ninja navigates the iframe after load, invalidating the ref.
+    const win = iframeRef.current?.contentWindow;
+    if (
+      win &&
+      event.source !== win &&
+      event.origin !== "https://vdo.ninja" &&
+      event.origin !== "https://www.vdo.ninja"
+    ) {
+      return;
+    }
 
     const data = event.data as
       | { dataReceived?: { [NAMESPACE]?: EventPayload } }

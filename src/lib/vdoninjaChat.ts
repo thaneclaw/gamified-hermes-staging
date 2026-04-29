@@ -114,9 +114,15 @@ export function sendChat(
   text: string,
 ): boolean {
   const win = iframeRef.current?.contentWindow;
-  if (!win) return false;
+  if (!win) {
+    console.warn("[vdoninjaChat] sendChat: iframe contentWindow is null — message not sent");
+    return false;
+  }
   const trimmed = text.trim();
   if (!trimmed) return false;
+  if (import.meta.env.DEV) {
+    console.log("[vdoninjaChat] sendChat → iframe:", trimmed.slice(0, 80));
+  }
   win.postMessage({ sendChat: trimmed }, "*");
   return true;
 }
