@@ -529,22 +529,23 @@ function tileBoxStyle(tile: Tile): CSSProperties {
 }
 
 /**
- * Card animation box — 5px bleed all around to prevent glow/shadow clipping
- * from the tile's `overflow: hidden`. The blur ring and slam text need
- * breathing room at the edges.
+ * Card animation box — expanded beyond the tile to prevent glow/shadow
+ * clipping. No overflow:hidden or borderRadius so effects can bleed
+ * freely; OBS's compositing layer + z-order handles the visual masking.
  */
 function cardBoxStyle(tile: Tile): CSSProperties {
-  const bleed = 5;
-  const r = Math.round(Math.min(tile.w, tile.h) * 0.22);
+  const bleed = 10;
   return {
     position: "absolute",
     left: tile.x - bleed,
     top: tile.y - bleed,
     width: tile.w + bleed * 2,
     height: tile.h + bleed * 2,
-    overflow: "hidden",
     pointerEvents: "none",
-    borderRadius: r + bleed,
+    // No overflow:hidden — card effects (glow, dim, slam text) need
+    // to paint past the tile edges. OBS's video feed sits underneath;
+    // the overlay masks anything that bleeds too far.
+    // No borderRadius — we let the visual effects bleed square.
   };
 }
 
