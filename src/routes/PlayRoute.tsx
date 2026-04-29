@@ -161,6 +161,7 @@ const NEON = {
   purple: "#a855ff",
   cyan: "#22e2ff",
   red: "#ff2e6b",
+  green: "#00d96b",
   amber: "#ffb000",
 } as const;
 
@@ -168,9 +169,9 @@ const cardThemes: Record<CardId, { glow: string; edge: string; tint: string }> =
   {
     stfu: { glow: NEON.red, edge: "#ff5482", tint: "rgba(255, 46, 107, 0.12)" },
     micdrop: {
-      glow: NEON.amber,
-      edge: "#ffd454",
-      tint: "rgba(255, 176, 0, 0.12)",
+      glow: NEON.green,
+      edge: "#22ff7a",
+      tint: "rgba(0, 217, 107, 0.12)",
     },
   };
 

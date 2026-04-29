@@ -301,13 +301,14 @@ function StfuCard({ tile }: { tile: Tile }) {
           animation: "stfuGlowRing 2500ms ease-in-out forwards",
         }}
       />
-      {/* Red halo flash — fades in at edges, transparent in center */}
+      {/* Red halo flash — screen blend like mic drop, transparent center */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 50% 50%, transparent 35%, rgba(255, 46, 107, 0.5) 70%, rgba(255, 46, 107, 0.15) 100%)",
+            "radial-gradient(circle at 50% 50%, transparent 30%, rgba(255, 46, 107, 0.6) 65%, rgba(255, 20, 60, 0.35) 100%)",
+          mixBlendMode: "screen",
           opacity: 0,
           willChange: "opacity",
           animation: "stfuFlash 2500ms ease-out forwards",
