@@ -289,39 +289,28 @@ function StfuCard({ tile }: { tile: Tile }) {
         animation: "stfuTileShake 360ms ease-in-out",
       }}
     >
-      {/* Red inset glow ring around tile edge — pulses 0 → 0.8 → 0. */}
+      {/* Red inset glow ring — stronger halo at edges */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           boxShadow:
-            "inset 0 0 40px #ff2e6b, inset 0 0 80px rgba(255, 46, 107, 0.9)",
+            "inset 0 0 50px #ff2e6b, inset 0 0 100px rgba(255, 46, 107, 0.8)",
           opacity: 0,
           willChange: "opacity",
           animation: "stfuGlowRing 2500ms ease-in-out forwards",
         }}
       />
-      {/* Aggressive red flash — fast in, decays through the hold. */}
+      {/* Red halo flash — fades in at edges, transparent in center */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 50% 45%, rgba(255, 30, 100, 1), rgba(200, 0, 50, 0.85))",
+            "radial-gradient(circle at 50% 50%, transparent 35%, rgba(255, 46, 107, 0.5) 70%, rgba(255, 46, 107, 0.15) 100%)",
           opacity: 0,
           willChange: "opacity",
           animation: "stfuFlash 2500ms ease-out forwards",
-        }}
-      />
-      {/* Bright red dim wash — clearly reads as "bad / punishment". */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          background: "rgba(255, 20, 60, 0.65)",
-          opacity: 0,
-          willChange: "opacity",
-          animation: "stfuDim 2500ms ease-out forwards",
         }}
       />
       {/* The slam text — heavier drop-shadow stack for v1.2 intensity. */}
