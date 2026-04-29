@@ -135,9 +135,10 @@ export function buildIframeUrl(params: GuestIframeParams): string {
 }
 
 /**
- * Builds the iframe `src` for the host's wrapper. Identical to
- * {@link buildIframeUrl} but adds `view=TBSqrdw` so the host sees the
- * producer's composited feed (matching the host's existing URL today).
+ * Builds the iframe `src` for the host's wrapper. Same base room params
+ * as a guest but with `view=TBSqrdw` (instead of guests' explicit view)
+ * so the host sees the producer's composited stream. Also hides the
+ * participant list and gives the host a small self-view preview.
  */
 export function buildHostIframeUrl(params: GuestIframeParams): string {
   const all = [
@@ -145,6 +146,8 @@ export function buildHostIframeUrl(params: GuestIframeParams): string {
     ["push", params.push] as const,
     ["label", params.label] as const,
     ["view", PRODUCER_VIEW_ID] as const,
+    ["showlist", "0"] as const,
+    ["minipreview", null] as const,
   ];
   return `${VDO_NINJA_BASE}?${toQueryString(all)}`;
 }
