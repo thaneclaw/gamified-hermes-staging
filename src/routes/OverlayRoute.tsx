@@ -501,14 +501,14 @@ function CalibrationGrid({ tiles }: { tiles: TileMap }) {
 }
 
 function tileBoxStyle(tile: Tile): CSSProperties {
-  // The tiles from coords.ts represent full bounding boxes including VDO.Ninja
-  // border chrome and nameplate. Overlay must sit flush with the INNER
-  // video area only — no bleed onto white borders, chrome, or labels.
+  // Overlay must sit EXACTLY inside VDO.Ninja's camera chrome:
+  // the white border is ~6px, the inner fill is black. Nameplate sits
+  // below the video. We match ONLY the inner black video area.
   const scale = Math.min(tile.w, tile.h) / 280;
-  const sideInset = Math.round(14 * scale);      // ~12-14px clears white border
-  const topInset  = Math.round(6 * scale);        // ~6px top chrome (moves overlay UP)
-  const bottomInset = Math.round(26 * scale);      // ~26px clears nameplate below
-  const r = Math.round(Math.min(tile.w, tile.h) * 0.23); // ~23% = iOS squircle
+  const sideInset  = Math.round(6 * scale);    // ~6px clears white border only
+  const topInset   = Math.round(2 * scale);    // nearly flush with top border
+  const bottomInset = Math.round(32 * scale);  // ~32px clears nameplate under video
+  const r = Math.round(Math.min(tile.w, tile.h) * 0.28); // 28% = fuller squircle
   return {
     position: "absolute",
     left: tile.x + sideInset,
