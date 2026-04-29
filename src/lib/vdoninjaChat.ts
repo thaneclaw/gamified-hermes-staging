@@ -139,8 +139,16 @@ export function onChat(
     const data = event.data as Record<string, unknown> | null | undefined;
     if (!data || typeof data !== "object") return;
 
+    // Always log in DEV so we can see what VDO.Ninja actually sends.
+    if (import.meta.env.DEV) {
+      console.log("[vdoninjaChat] raw event.data:", JSON.stringify(data));
+    }
+
     // Shape A: { action: 'incoming-chat', value: { msg, label, ts? } }
     if (data["action"] === "incoming-chat") {
+      if (import.meta.env.DEV) {
+        console.log("[vdoninjaChat] matched Shape A (incoming-chat)");
+      }
       const value = data["value"] as Record<string, unknown> | undefined;
       // Defensive: VDO.Ninja has used msg, message, or text in different builds.
       const rawMsg =
@@ -164,6 +172,9 @@ export function onChat(
     // Shape B: top-level `chat` field on the message itself
     const chat = data["chat"];
     if (chat && typeof chat === "object") {
+      if (import.meta.env.DEV) {
+        console.log("[vdoninjaChat] matched Shape B (top-level chat)");
+      }
       const c = chat as Record<string, unknown>;
       const rawMsg =
         typeof c["msg"] === "string"
@@ -180,6 +191,17 @@ export function onChat(
       } else if (import.meta.env.DEV) {
         console.warn("[vdoninjaChat] top-level chat with no msg:", c);
       }
+    }
+    // If neither shape matched and this looks like it could be chat-related,
+    // log it so we can discover new VDO.Ninja formats.
+    if (
+      import.meta.env.DEV &&
+      (typeof data["msg"] === "string" ||
+        typeof data["message"] === "string" ||
+        typeof data["text"] === "string" ||
+        data["action"] === "chat")
+    ) {
+      console.warn("[vdoninjaChat] unrecognized chat-like shape:", data);
     }
   };
   window.addEventListener("message", handler);
@@ -203,11 +225,17 @@ function emit(
   callback: (msg: Omit<ChatMessage, "id" | "source">) => void,
 ): void {
   const { label: parsedLabel, msg } = parseChatBody(rawMsg);
+  if (import.meta.env.DEV) {
+    console.log("[vdoninjaChat] emit — raw:", rawMsg.slice(0, 120), "parsed label:", parsedLabel, "parsed msg:", msg?.slice(0, 120));
+  }
   if (!msg) return;
   const label = parsedLabel || sidecarLabel || "Guest";
   // Extra safety: if DOMParser left any literal tags in text nodes,
   // strip them before the string reaches React (which escapes them).
   const cleanMsg = stripHtmlTags(msg);
+  if (import.meta.env.DEV) {
+    console.log("[vdoninjaChat] emit — final:", { label, msg: cleanMsg.slice(0, 120) });
+  }
   callback({ msg: cleanMsg, label, ts: Date.now() });
 }
 

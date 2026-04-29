@@ -314,15 +314,14 @@ function StfuCard({ tile }: { tile: Tile }) {
           animation: "stfuFlash 2500ms ease-out forwards",
         }}
       />
-      {/* Heavy red dim wash — dark red reads as "bad / punishment"
-          against the underlying video. Green = good (mic drop), red =
-          bad (STFU). CSS filters can't reach the video so we fake it
-          with an opaque overlay. */}
+      {/* Bright red dim wash — clearly reads as "bad / punishment".
+          The opacity stays at 0.55 so the underlying video is still
+          visible but the tile is unmistakably tinted red. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(80, 0, 15, 0.82)",
+          background: "rgba(220, 0, 40, 0.55)",
           opacity: 0,
           willChange: "opacity",
           animation: "stfuDim 2500ms ease-out forwards",
