@@ -806,7 +806,7 @@ const styles: Record<string, CSSProperties> = {
     appearance: "none",
     border: "1px solid",
     borderRadius: 12,
-    padding: "14px 10px",
+    padding: "18px 14px",
     cursor: "pointer",
     display: "flex",
     flexDirection: "column",
@@ -817,7 +817,7 @@ const styles: Record<string, CSSProperties> = {
     fontFamily: "inherit",
   },
   cardName: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 800,
     letterSpacing: 0.6,
     textAlign: "center",
@@ -885,7 +885,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexWrap: "wrap",
     gap: 6,
-    fontSize: 12,
+    fontSize: 15,
     lineHeight: 1.35,
   },
   chatLabel: {

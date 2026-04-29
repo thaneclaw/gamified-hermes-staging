@@ -501,20 +501,16 @@ function CalibrationGrid({ tiles }: { tiles: TileMap }) {
 }
 
 function tileBoxStyle(tile: Tile): CSSProperties {
-  // Overlay must sit EXACTLY inside VDO.Ninja's camera chrome:
-  // the white border is ~6px, the inner fill is black. Nameplate sits
-  // below the video. We match ONLY the inner black video area.
-  const scale = Math.min(tile.w, tile.h) / 280;
-  const sideInset  = Math.round(6 * scale);    // ~6px clears white border only
-  const topInset   = Math.round(2 * scale);    // nearly flush with top border
-  const bottomInset = Math.round(32 * scale);  // ~32px clears nameplate under video
-  const r = Math.round(Math.min(tile.w, tile.h) * 0.28); // 28% = fuller squircle
+  // OBS layering handles z-order: overlays cover cams, nameplates/top
+  // graphics sit above. We fill the FULL tile area with rounded edges
+  // matching VDO.Ninja's own tile chrome.
+  const r = Math.round(Math.min(tile.w, tile.h) * 0.22);
   return {
     position: "absolute",
-    left: tile.x + sideInset,
-    top: tile.y + topInset,
-    width: tile.w - sideInset * 2,
-    height: tile.h - topInset - bottomInset,
+    left: tile.x,
+    top: tile.y,
+    width: tile.w,
+    height: tile.h,
     overflow: "hidden",
     pointerEvents: "none",
     borderRadius: r,
