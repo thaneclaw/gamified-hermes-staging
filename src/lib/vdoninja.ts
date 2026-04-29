@@ -133,77 +133,41 @@ export function buildIframeUrl(params: GuestIframeParams): string {
 }
 
 /**
- * Director-room constants for host and editor iframes.
- * Replaces `room=` with `dir=` + `codirector=` for director-privilege
- * access, and adds `password` (required for codirector entry).
- */
-const DIRECTOR_ROOM_PARAMS: Array<readonly [string, string | null]> = [
-  ["dir", "GamifiedShow"],
-  ["codirector", "gamifiedadmin"],
-  ["password", "gaming"],
-  ["hash", "1f71"],
-];
-
-/**
- * Host-specific viewing flags.
- *   q            → quality selector hidden
- *   tips         → tooltips disabled
- *   broadcast    → sees only director/producer stream
- *   showlist=0   → hides participant sidebar
- *   minipreview  → small self-view
- *   pausepreview → guest tiles paused by default in director controls
- */
-const HOST_VIEW_PARAMS: Array<readonly [string, string | null]> = [
-  ["q", null],
-  ["tips", null],
-  ["broadcast", null],
-  ["showlist", "0"],
-  ["minipreview", null],
-  ["pausepreview", null],
-];
-
-/**
- * Editor-specific viewing flags.
- *   videodevice=0 → no camera prompt (audio-only publish)
- *   broadcast     → sees only director/producer stream
- *   showlist=0    → hides participant sidebar
- *   minipreview   → small self-view
- *   blind         → video tiles render but don't load by default
- */
-const EDITOR_VIEW_PARAMS: Array<readonly [string, string | null]> = [
-  ["videodevice", "0"],
-  ["broadcast", null],
-  ["showlist", "0"],
-  ["minipreview", null],
-  ["blind", null],
-];
-
-/**
- * Builds the iframe `src` for the host's wrapper.
- * The host gets codirector privileges (`dir=` + `codirector=`) and
- * publishes their camera (`push=`) so the producer's existing OBS
- * browser source for that push ID keeps working unchanged.
- * `broadcast` auto-targets the director stream — no hardcoded `view=`.
+ * Builds the iframe `src` for the host's wrapper. Identical to
+ * {@link buildIframeUrl} but adds `view=TBSqrdw` so the host sees the
+ * producer's composited feed (matching the host's existing URL today).
  */
 export function buildHostIframeUrl(params: GuestIframeParams): string {
   const all = [
-    ...DIRECTOR_ROOM_PARAMS,
-    ...HOST_VIEW_PARAMS,
+    ...GUEST_ROOM_PARAMS,
     ["push", params.push] as const,
     ["label", params.label] as const,
+    ["view", PRODUCER_VIEW_ID] as const,
   ];
   return `${VDO_NINJA_BASE}?${toQueryString(all)}`;
 }
 
 /**
- * Builds the iframe `src` for the editor's wrapper.
- * Audio-only publish (`videodevice=0`), codirector privileges, and
- * `blind` so they manually un-blind only the producer's virtual cam.
+ * Builds the iframe `src` for the editor's wrapper. The editor is
+ * backstage crew (records the backup, doesn't participate on camera),
+ * so they:
+ *   - Publish AUDIO only — `videodevice=0` skips the camera prompt
+ *     entirely. They still get a microphone prompt for the mic.
+ *   - Use the same broadcast-mode viewing flags as guests so the
+ *     producer's composited stream auto-fills the iframe and other
+ *     guests don't shrink it. Audio between editor and guests stays
+ *     live for off-air coordination.
+ *
+ * Resulting URL pattern matches buildIframeUrl (broadcast + showlist=0
+ * + minipreview + roombitrate=0) plus `videodevice=0`.
  */
 export function buildEditorIframeUrl(params: GuestIframeParams): string {
   const all = [
-    ...DIRECTOR_ROOM_PARAMS,
-    ...EDITOR_VIEW_PARAMS,
+    ...GUEST_ROOM_PARAMS,
+    ["broadcast", null] as const,
+    ["showlist", "0"] as const,
+    ["minipreview", null] as const,
+    ["videodevice", "0"] as const,
     ["push", params.push] as const,
     ["label", params.label] as const,
   ];
@@ -327,7 +291,7 @@ export function sendData(
     type: "pcs",
   };
   if (import.meta.env.DEV) {
-    console.log("[vdoninja] postMessage → iframe:", msg);
+    console.log("[vdoninja] →", payload.type, payload);
   }
   win.postMessage(msg, "*");
 }
@@ -347,12 +311,6 @@ export function onData(
   const handler = (event: MessageEvent) => {
     // Guard: only accept messages from our iframe (window.parent === us).
     const expectedSource = iframeRef.current?.contentWindow;
-    if (import.meta.env.DEV) {
-      console.log("[vdoninja] raw message:", {
-        sourceMatch: !expectedSource || event.source === expectedSource,
-        data: event.data,
-      });
-    }
     if (expectedSource && event.source !== expectedSource) return;
 
     const data = event.data as
@@ -361,7 +319,7 @@ export function onData(
     const payload = data?.dataReceived?.[NAMESPACE];
     if (!payload || typeof payload !== "object") return;
     if (import.meta.env.DEV) {
-      console.log("[vdoninja] ← accepted payload:", payload.type, payload);
+      console.log("[vdoninja] ←", payload.type, payload);
     }
     callback(payload);
   };

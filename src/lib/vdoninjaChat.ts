@@ -135,10 +135,6 @@ export function onChat(
     const data = event.data as Record<string, unknown> | null | undefined;
     if (!data || typeof data !== "object") return;
 
-    if (import.meta.env.DEV) {
-      console.log("[vdoninjaChat] raw iframe message:", data);
-    }
-
     // Shape A: { action: 'incoming-chat', value: { msg, label, ts? } }
     if (data["action"] === "incoming-chat") {
       const value = data["value"] as Record<string, unknown> | undefined;
@@ -146,9 +142,6 @@ export function onChat(
         typeof value?.["msg"] === "string" ? (value["msg"] as string) : null;
       const sidecarLabel =
         typeof value?.["label"] === "string" ? (value["label"] as string) : "";
-      if (import.meta.env.DEV) {
-        console.log("[vdoninjaChat] Shape A incoming-chat:", { rawMsg, sidecarLabel });
-      }
       if (rawMsg) emit(rawMsg, sidecarLabel, callback);
       return;
     }
@@ -160,15 +153,7 @@ export function onChat(
       const rawMsg = typeof c["msg"] === "string" ? (c["msg"] as string) : null;
       const sidecarLabel =
         typeof c["label"] === "string" ? (c["label"] as string) : "";
-      if (import.meta.env.DEV) {
-        console.log("[vdoninjaChat] Shape B chat:", { rawMsg, sidecarLabel });
-      }
       if (rawMsg) emit(rawMsg, sidecarLabel, callback);
-      return;
-    }
-
-    if (import.meta.env.DEV) {
-      console.log("[vdoninjaChat] ignored message (no chat shape matched)");
     }
   };
   window.addEventListener("message", handler);
@@ -189,9 +174,6 @@ function emit(
   callback: (msg: Omit<ChatMessage, "id" | "source">) => void,
 ): void {
   const { label: parsedLabel, msg } = parseChatBody(rawMsg);
-  if (import.meta.env.DEV) {
-    console.log("[vdoninjaChat] emit — parsed:", { rawMsg: rawMsg.slice(0, 80), parsedLabel, msg: msg.slice(0, 80) });
-  }
   if (!msg) return;
   const label = parsedLabel || sidecarLabel || "Guest";
   callback({ msg, label, ts: Date.now() });
