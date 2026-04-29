@@ -54,6 +54,10 @@ interface ParsedChatBody {
   msg: string;
 }
 
+function stripHtmlTags(input: string): string {
+  return input.replace(/<[^>]*>/g, "");
+}
+
 /**
  * Parses one VDO.Ninja chat `msg` field. Two shapes show up in the wild:
  *
@@ -138,11 +142,22 @@ export function onChat(
     // Shape A: { action: 'incoming-chat', value: { msg, label, ts? } }
     if (data["action"] === "incoming-chat") {
       const value = data["value"] as Record<string, unknown> | undefined;
+      // Defensive: VDO.Ninja has used msg, message, or text in different builds.
       const rawMsg =
-        typeof value?.["msg"] === "string" ? (value["msg"] as string) : null;
+        typeof value?.["msg"] === "string"
+          ? (value["msg"] as string)
+          : typeof value?.["message"] === "string"
+            ? (value["message"] as string)
+            : typeof value?.["text"] === "string"
+              ? (value["text"] as string)
+              : null;
       const sidecarLabel =
         typeof value?.["label"] === "string" ? (value["label"] as string) : "";
-      if (rawMsg) emit(rawMsg, sidecarLabel, callback);
+      if (rawMsg) {
+        emit(rawMsg, sidecarLabel, callback);
+      } else if (import.meta.env.DEV) {
+        console.warn("[vdoninjaChat] incoming-chat with no msg:", value);
+      }
       return;
     }
 
@@ -150,10 +165,21 @@ export function onChat(
     const chat = data["chat"];
     if (chat && typeof chat === "object") {
       const c = chat as Record<string, unknown>;
-      const rawMsg = typeof c["msg"] === "string" ? (c["msg"] as string) : null;
+      const rawMsg =
+        typeof c["msg"] === "string"
+          ? (c["msg"] as string)
+          : typeof c["message"] === "string"
+            ? (c["message"] as string)
+            : typeof c["text"] === "string"
+              ? (c["text"] as string)
+              : null;
       const sidecarLabel =
         typeof c["label"] === "string" ? (c["label"] as string) : "";
-      if (rawMsg) emit(rawMsg, sidecarLabel, callback);
+      if (rawMsg) {
+        emit(rawMsg, sidecarLabel, callback);
+      } else if (import.meta.env.DEV) {
+        console.warn("[vdoninjaChat] top-level chat with no msg:", c);
+      }
     }
   };
   window.addEventListener("message", handler);
@@ -167,6 +193,9 @@ export function onChat(
  * `label` field (when present) wins as a fallback when no chat_name
  * span was embedded — and `Guest` is the last-resort label so we never
  * render an empty bubble.
+ *
+ * Falls back to a regex strip for any tags DOMParser might have missed
+ * (e.g. malformed HTML that survives as literal text).
  */
 function emit(
   rawMsg: string,
@@ -176,7 +205,10 @@ function emit(
   const { label: parsedLabel, msg } = parseChatBody(rawMsg);
   if (!msg) return;
   const label = parsedLabel || sidecarLabel || "Guest";
-  callback({ msg, label, ts: Date.now() });
+  // Extra safety: if DOMParser left any literal tags in text nodes,
+  // strip them before the string reaches React (which escapes them).
+  const cleanMsg = stripHtmlTags(msg);
+  callback({ msg: cleanMsg, label, ts: Date.now() });
 }
 
 /**
