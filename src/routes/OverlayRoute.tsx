@@ -442,13 +442,12 @@ function MicDropCard({ tile }: { tile: Tile }) {
       >
         {"\u{1F3A4}"}
       </div>
-      {/* Slam text — anchored near the TOP of the tile so the falling
-          mic passes behind/through the rest of the tile area. */}
+      {/* Slam text — centered in the tile like STFU */}
       <div
         style={{
           position: "absolute",
           left: "50%",
-          top: "18%",
+          top: "50%",
           transform: "translate(-50%, -50%) scale(3) rotate(-2deg)",
           opacity: 0,
           willChange: "transform, opacity",
@@ -512,13 +511,14 @@ function CalibrationGrid({ tiles }: { tiles: TileMap }) {
 }
 
 function tileBoxStyle(tile: Tile): CSSProperties {
-  // The tiles from coords.ts represent the full bounding box including border
-  // chrome and nameplate. We overlay JUST the inner video area.
+  // The tiles from coords.ts represent full bounding boxes including VDO.Ninja
+  // border chrome and nameplate. Overlay must sit flush with the INNER
+  // video area only — no bleed onto white borders, chrome, or labels.
   const scale = Math.min(tile.w, tile.h) / 280;
-  const sideInset = Math.round(10 * scale);      // white border on left / right
-  const topInset = Math.round(8 * scale);         // white border top
-  const bottomInset = Math.round(22 * scale);     // nameplate below video
-  const r = Math.round(55 * scale);               // iOS-like squircle radius
+  const sideInset = Math.round(14 * scale);      // ~12-14px clears white border
+  const topInset  = Math.round(6 * scale);        // ~6px top chrome (moves overlay UP)
+  const bottomInset = Math.round(26 * scale);      // ~26px clears nameplate below
+  const r = Math.round(Math.min(tile.w, tile.h) * 0.23); // ~23% = iOS squircle
   return {
     position: "absolute",
     left: tile.x + sideInset,
