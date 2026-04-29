@@ -389,8 +389,8 @@ function MicDropCard({ tile }: { tile: Tile }) {
   // ±120% of tile height — ensures the mic starts FULLY above the tile
   // and exits FULLY below it. Inlined as px so the keyframe can refer to
   // it via var() without depending on a unit context.
-  const startY = -Math.round(tile.h * 1.2);
-  const endY = Math.round(tile.h * 1.2);
+  const startY = -10; // bleed offset — starts right at top edge of target tile
+  const endY = tile.h + 10; // exits at bottom edge
   return (
     <div style={cardBoxStyle(tile)}>
       {/* Brief green flash — t=0–200ms, then fades. */}
