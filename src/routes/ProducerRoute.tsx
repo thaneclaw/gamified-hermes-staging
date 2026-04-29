@@ -197,9 +197,6 @@ function ProducerPanel() {
 
   const onMessage = useCallback(
     (msg: EventPayload) => {
-      if (import.meta.env.DEV) {
-        console.log("[producer] onMessage received:", msg.type, msg);
-      }
       const text = formatEvent(msg, roster);
       if (text) {
         setFeed((prev) =>
@@ -261,24 +258,7 @@ function ProducerPanel() {
     const epoch = Date.now();
     resetEpochRef.current = epoch;
     saveResetEpoch(epoch);
-    if (import.meta.env.DEV) {
-      console.log("[producer] fireResetCards — epoch:", epoch);
-    }
     send({ type: "cardReset", resetEpoch: epoch, ts: epoch });
-    if (import.meta.env.DEV) {
-      console.log("[producer] fireResetCards — send() returned");
-    }
-    // Always show locally even if the broadcast echo doesn't come back.
-    setFeed((prev) =>
-      [
-        {
-          id: `f${feedIdRef.current++}`,
-          ts: epoch,
-          text: `Cards reset (epoch ${epoch})`,
-        },
-        ...prev,
-      ].slice(0, FEED_CAP),
-    );
   }, [send]);
 
   const updateTile = useCallback(

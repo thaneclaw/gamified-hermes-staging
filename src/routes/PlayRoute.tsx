@@ -230,9 +230,6 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
   // Memoize callback so the effect inside useVdoNinja doesn't resubscribe.
   const onMessage = useCallback(
     (msg: EventPayload) => {
-      if (import.meta.env.DEV) {
-        console.log("[play] onMessage received:", msg.type, msg);
-      }
       switch (msg.type) {
         case "rosterUpdate":
           setRoster(msg.names);
