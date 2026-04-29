@@ -89,14 +89,43 @@ export interface GuestIframeParams {
 }
 
 /**
- * Builds the iframe `src` for a guest's wrapper. Combines the room
- * constants with the per-guest variables. Does **not** add `view=` —
- * guests view the producer's composited Virtual Camera feed via OBS,
- * not each other directly.
+ * Broadcast-mode flags layered on top of {@link GUEST_ROOM_PARAMS} for
+ * the GUEST iframe only. Together they make the guest see only the
+ * producer's composited stream (the director) and remove all other
+ * guests from the visible layout — so a 4th guest joining doesn't
+ * shrink the producer's stream to make room.
+ *
+ *   broadcast    → guests see only the director's stream; other guests
+ *                  are removed from the layout (auto-discovers the
+ *                  director, no need to hardcode `view=TBSqrdw`).
+ *                  Audio between guests is unaffected.
+ *   showlist=0   → hides VDO.Ninja's participant sidebar.
+ *   minipreview  → small self-view so guests can confirm their cam.
+ *
+ * `roombitrate=0` (in GUEST_ROOM_PARAMS) stays as a bandwidth safety
+ * belt — it works in conjunction with `broadcast`, not as a substitute.
+ *
+ * Reference: https://docs.vdo.ninja/advanced-settings/video-parameters/broadcast
+ */
+const GUEST_BROADCAST_PARAMS: Array<readonly [string, string | null]> = [
+  ["broadcast", null],
+  ["showlist", "0"],
+  ["minipreview", null],
+];
+
+/**
+ * Builds the iframe `src` for a guest's wrapper. Layers the broadcast-
+ * mode flags on top of the room constants so the guest sees only the
+ * producer's composited stream (auto-discovered) — and other guests
+ * joining doesn't shrink that view.
+ *
+ * Does **not** add an explicit `view=` — `&broadcast` auto-targets the
+ * director's stream.
  */
 export function buildIframeUrl(params: GuestIframeParams): string {
   const all = [
     ...GUEST_ROOM_PARAMS,
+    ...GUEST_BROADCAST_PARAMS,
     ["push", params.push] as const,
     ["label", params.label] as const,
   ];
