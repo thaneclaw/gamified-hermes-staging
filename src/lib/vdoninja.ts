@@ -51,23 +51,21 @@ const GUEST_ROOM_PARAMS: Array<readonly [string, string | null]> = [
 ];
 
 /**
- * Overlay / producer iframe URL. Joins the room as a media-less peer:
- * no video, no audio, but with a unique push ID so VDO.Ninja treats
- * it as a full peer connection that can both send AND receive data.
+ * Overlay / producer iframe URL. Joins as a data-only codirector so
+ * VDO.Ninja connects it to everyone in the room (codirector topology)
+ * while keeping it media-less (dataonly). This gives us a peer that
+ * can BOTH broadcast sendData AND receive events from all guests.
  *
- * `&dataonly` was the original intent (build-spec §6) but real-world
- * testing shows data-only peers cannot broadcast via `sendData` — they
- * only receive. Using `novideo&noaudio&push=OverlayData` creates a
- * lightweight peer that can bidirectionally use the data channel.
- *
- * The `OverlayData` push ID is internal and never viewed by anyone.
+ * Previous attempts:
+ *   - `dataonly` alone: can receive but not broadcast (no peer conn)
+ *   - `novideo+noaudio+push`: nobody auto-connects to random push IDs
+ *   - `dir+codirector+dataonly`: codirectors are wired to everyone
  */
 const OVERLAY_PARAMS: Array<readonly [string, string | null]> = [
-  ["room", "GamifiedShow"],
+  ["dir", "GamifiedShow"],
+  ["codirector", "gamifiedadmin"],
   ["password", "gaming"],
-  ["novideo", null],
-  ["noaudio", null],
-  ["push", "OverlayData"],
+  ["dataonly", null],
   ["hash", "1f71"],
 ];
 
