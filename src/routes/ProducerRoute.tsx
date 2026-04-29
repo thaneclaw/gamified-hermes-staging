@@ -20,6 +20,11 @@ import {
   useVdoNinja,
   type EventPayload,
 } from "../lib/vdoninja";
+import {
+  PRODUCER_PASSWORD,
+  isProducerAuthenticated,
+  persistProducerAuth,
+} from "../lib/auth";
 
 // ── shared seat plumbing ────────────────────────────────────────────────
 
@@ -157,7 +162,22 @@ const NEON = {
 
 // ── component ───────────────────────────────────────────────────────────
 
+/**
+ * Top-level route — gates the producer panel behind a password prompt.
+ * `/play` and `/overlay` stay un-gated; only `/producer` flows through
+ * here. Once the user enters the right password, the token persists in
+ * `localStorage` so OBS Custom Browser Docks stay authenticated across
+ * OBS restarts (per `src/lib/auth.ts`).
+ */
 export function ProducerRoute() {
+  const [authed, setAuthed] = useState<boolean>(isProducerAuthenticated);
+  if (!authed) {
+    return <ProducerAuthGate onAuth={() => setAuthed(true)} />;
+  }
+  return <ProducerPanel />;
+}
+
+function ProducerPanel() {
   const [roster, setRoster] = useState<Record<SeatId, string>>(loadRoster);
   // Form state — separate from `roster` so the user can edit then Save.
   const [draftRoster, setDraftRoster] = useState<Record<SeatId, string>>(roster);
@@ -418,6 +438,86 @@ export function ProducerRoute() {
         aria-hidden="true"
         tabIndex={-1}
       />
+    </div>
+  );
+}
+
+// ── auth gate ───────────────────────────────────────────────────────────
+
+interface ProducerAuthGateProps {
+  onAuth: () => void;
+}
+
+/**
+ * Centered password prompt shown when the local browser hasn't yet
+ * persisted the producer auth token. On submit: compare against
+ * PRODUCER_PASSWORD (constant-time-ish; the password lives in the
+ * client bundle anyway so timing leaks aren't meaningful here),
+ * persist on success, surface a brief error on failure.
+ */
+function ProducerAuthGate({ onAuth }: ProducerAuthGateProps) {
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (draft === PRODUCER_PASSWORD) {
+      persistProducerAuth();
+      onAuth();
+    } else {
+      setError(true);
+      setDraft("");
+      // Tiny delay then focus again so the user can retry immediately.
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  };
+
+  return (
+    <div style={styles.gateShell}>
+      <form onSubmit={submit} style={styles.gateCard}>
+        <span style={styles.brand}>GAMIFIED</span>
+        <span style={styles.gateTitle}>Producer panel</span>
+        <span style={styles.gateHint}>Enter password to continue.</span>
+        <input
+          ref={inputRef}
+          type="password"
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            if (error) setError(false);
+          }}
+          placeholder="Password"
+          autoComplete="current-password"
+          spellCheck={false}
+          style={{
+            ...styles.gateInput,
+            borderColor: error ? NEON.red : NEON.panelEdge,
+          }}
+        />
+        <button
+          type="submit"
+          disabled={!draft}
+          style={{
+            ...styles.primaryButton,
+            opacity: draft ? 1 : 0.5,
+            cursor: draft ? "pointer" : "default",
+          }}
+        >
+          Unlock
+        </button>
+        <span
+          style={{
+            ...styles.gateError,
+            visibility: error ? "visible" : "hidden",
+          }}
+        >
+          Wrong password — try again.
+        </span>
+      </form>
     </div>
   );
 }
@@ -761,5 +861,61 @@ const styles: Record<string, CSSProperties> = {
     border: 0,
     opacity: 0,
     pointerEvents: "none",
+  },
+  gateShell: {
+    minHeight: "100vh",
+    background: NEON.bg,
+    color: NEON.text,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    fontFamily:
+      '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif',
+  },
+  gateCard: {
+    width: "min(360px, 100%)",
+    background: NEON.surface,
+    border: `1px solid ${NEON.panelEdge}`,
+    borderRadius: 14,
+    padding: "26px 24px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    alignItems: "stretch",
+    boxShadow: `0 0 32px ${NEON.purple}33, 0 0 18px ${NEON.cyan}22`,
+  },
+  gateTitle: {
+    fontSize: 13,
+    letterSpacing: 2,
+    color: NEON.textDim,
+    textTransform: "uppercase",
+    fontWeight: 800,
+    textAlign: "center",
+  },
+  gateHint: {
+    fontSize: 12,
+    color: NEON.textDim,
+    textAlign: "center",
+  },
+  gateInput: {
+    appearance: "none",
+    background: NEON.surfaceAlt,
+    border: "1px solid",
+    borderRadius: 8,
+    padding: "10px 12px",
+    color: NEON.text,
+    fontFamily: "inherit",
+    fontSize: 14,
+    fontWeight: 700,
+    outline: "none",
+    letterSpacing: 1,
+  },
+  gateError: {
+    fontSize: 11,
+    color: NEON.red,
+    textAlign: "center",
+    minHeight: 14,
+    letterSpacing: 0.5,
   },
 };
