@@ -315,7 +315,7 @@ function StfuCard({ tile }: { tile: Tile }) {
         }}
       />
       {/* Bright red dim wash — clearly reads as "bad / punishment".
-          The opacity stays at 0.5 so the underlying video is still
+          The opacity stays at 0.55 so the underlying video is still
           visible but the tile is unmistakably tinted red. */}
       <div
         style={{
