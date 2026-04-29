@@ -137,7 +137,7 @@ body.overlay-route #root {
    but constrained to the target tile rather than going fullscreen. */
 
 /* Tile-shake on STFU — fast oscillations under 360ms so it lands inside
-   the 100ms "disruption" window before the text comes in. translate-only. */
+   the "disruption" window before the text comes in. translate-only. */
 @keyframes stfuTileShake {
   0%, 100% { transform: translate(0, 0); }
   15% { transform: translate(-8px, 2px); }
@@ -147,75 +147,90 @@ body.overlay-route #root {
   85% { transform: translate(-2px, 0); }
 }
 
-/* Red flash — fast in (~80ms), decays through the hold, fades cleanly. */
+/* Red flash — fast in, decays through the hold, fades cleanly. v1.2
+   timings stretched to match the 2500ms total card duration. */
 @keyframes stfuFlash {
   0% { opacity: 0; }
-  4% { opacity: 1; }
-  18% { opacity: 0.5; }
-  80% { opacity: 0.35; }
+  3% { opacity: 1; }
+  16% { opacity: 0.55; }
+  82% { opacity: 0.35; }
   100% { opacity: 0; }
 }
 
-/* Dim wash — fades in over the first ~80ms, holds, fades out over the last 200ms. */
+/* Heavy dim wash — fades in over the first ~80ms, holds dark, fades out
+   over the last ~250ms. v1.2: stays dark longer for stronger impact. */
 @keyframes stfuDim {
   0% { opacity: 0; }
-  6% { opacity: 1; }
-  85% { opacity: 1; }
+  5% { opacity: 1; }
+  88% { opacity: 1; }
   100% { opacity: 0; }
 }
 
-/* STFU slam text — 100ms delay (the shake plays first), then a hard
-   slamIn with a slight rotate, hold, gentle fade. */
+/* Red inset glow ring — opacity-only pulse 0 → 0.8 → 0 across the full
+   2500ms. New in v1.2 to match MIC DROP's ring intensity. */
+@keyframes stfuGlowRing {
+  0% { opacity: 0; }
+  15% { opacity: 0.8; }
+  50% { opacity: 0.6; }
+  85% { opacity: 0.7; }
+  100% { opacity: 0; }
+}
+
+/* STFU slam text — small initial delay (the shake plays first), then a
+   hard slamIn with a slight rotate, hold, gentle fade. */
 @keyframes stfuSlamText {
-  0%, 5% { transform: translate(-50%, -50%) scale(3) rotate(-2deg); opacity: 0; }
-  20% { transform: translate(-50%, -50%) scale(0.92) rotate(-2deg); opacity: 1; }
-  28% { transform: translate(-50%, -50%) scale(1.04) rotate(-2deg); opacity: 1; }
-  35% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
-  80% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
+  0%, 4% { transform: translate(-50%, -50%) scale(3) rotate(-2deg); opacity: 0; }
+  18% { transform: translate(-50%, -50%) scale(0.92) rotate(-2deg); opacity: 1; }
+  25% { transform: translate(-50%, -50%) scale(1.04) rotate(-2deg); opacity: 1; }
+  32% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
+  82% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(1.04) rotate(-2deg); opacity: 0; }
 }
 
-/* MIC DROP — amber flash on the tile (no shake). */
+/* MIC DROP — green flash on the tile (no shake; celebration, not disruption). */
 @keyframes micFlash {
   0% { opacity: 0; }
-  5% { opacity: 1; }
-  20% { opacity: 0.55; }
-  80% { opacity: 0.4; }
+  4% { opacity: 1; }
+  8% { opacity: 0.85; }
+  18% { opacity: 0.4; }
+  85% { opacity: 0; }
   100% { opacity: 0; }
 }
 
-/* Gold inset glow ring around the tile edge — pulses gently while the
-   text holds. Opacity-only so it stays GPU-cheap. */
+/* Green inset glow ring — pulses 0 → 0.8 → 0 across the full duration. */
 @keyframes micGlowRing {
   0% { opacity: 0; }
-  18% { opacity: 1; }
-  45% { opacity: 0.7; }
-  60% { opacity: 1; }
-  80% { opacity: 0.85; }
+  18% { opacity: 0.8; }
+  45% { opacity: 0.6; }
+  65% { opacity: 0.8; }
+  85% { opacity: 0.7; }
   100% { opacity: 0; }
 }
 
-/* MIC DROP slam text — same cadence as STFU's text, amber-stamped. */
+/* MIC DROP slam text — anchored at top of tile via the component's `top`
+   inline style; the keyframe only animates the centering translate +
+   scale + rotate. 300ms component-level animation-delay places the slam
+   *during* the mic's fall through the tile. */
 @keyframes micSlamText {
-  0%, 5% { transform: translate(-50%, -50%) scale(3) rotate(-2deg); opacity: 0; }
-  20% { transform: translate(-50%, -50%) scale(0.92) rotate(-2deg); opacity: 1; }
-  28% { transform: translate(-50%, -50%) scale(1.04) rotate(-2deg); opacity: 1; }
-  35% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
-  80% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
+  0%, 4% { transform: translate(-50%, -50%) scale(3) rotate(-2deg); opacity: 0; }
+  18% { transform: translate(-50%, -50%) scale(0.92) rotate(-2deg); opacity: 1; }
+  25% { transform: translate(-50%, -50%) scale(1.04) rotate(-2deg); opacity: 1; }
+  32% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
+  82% { transform: translate(-50%, -50%) scale(1) rotate(-2deg); opacity: 1; }
   100% { transform: translate(-50%, -50%) scale(1.04) rotate(-2deg); opacity: 0; }
 }
 
-/* Mic emoji falling in from above the tile, bouncing to land beside the
-   text. Lateral offset is encoded in the inline transform; the keyframe
-   only animates Y + rotate + opacity. */
+/* Mic emoji falls THROUGH the tile vertically. Start/end Y are
+   per-tile px values exposed as CSS custom properties on the element
+   so this keyframe stays generic. The component sets
+   `--mic-start-y: -tile.h*1.2px` and `--mic-end-y: tile.h*1.2px`,
+   so the mic enters from above the tile and exits below. Tile
+   `overflow: hidden` clips the part outside the bounds. */
 @keyframes micEmojiFall {
-  0% { transform: translate(calc(-50% - 2.5em), -200%) rotate(-12deg); opacity: 0; }
-  10% { opacity: 1; }
-  30% { transform: translate(calc(-50% - 2.5em), 30%) rotate(10deg); opacity: 1; }
-  40% { transform: translate(calc(-50% - 2.5em), -10%) rotate(-4deg); opacity: 1; }
-  50% { transform: translate(calc(-50% - 2.5em), 8%) rotate(2deg); opacity: 1; }
-  60%, 80% { transform: translate(calc(-50% - 2.5em), 0%) rotate(0deg); opacity: 1; }
-  100% { transform: translate(calc(-50% - 2.5em), -20%) rotate(0deg); opacity: 0; }
+  0%   { transform: translate(-50%, var(--mic-start-y, -120%)); opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { transform: translate(-50%, var(--mic-end-y, 120%)); opacity: 0; }
 }
 
 @keyframes pulseDot {
