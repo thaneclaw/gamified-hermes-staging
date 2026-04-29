@@ -295,7 +295,7 @@ function StfuCard({ tile }: { tile: Tile }) {
           position: "absolute",
           inset: 0,
           boxShadow:
-            "inset 0 0 30px #ff2e6b, inset 0 0 60px rgba(255, 46, 107, 0.65)",
+            "inset 0 0 40px #ff2e6b, inset 0 0 80px rgba(255, 46, 107, 0.9)",
           opacity: 0,
           willChange: "opacity",
           animation: "stfuGlowRing 2500ms ease-in-out forwards",
@@ -307,21 +307,18 @@ function StfuCard({ tile }: { tile: Tile }) {
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 50% 45%, rgba(255, 46, 107, 0.95), rgba(180, 0, 30, 0.7))",
-          mixBlendMode: "multiply",
+            "radial-gradient(circle at 50% 45%, rgba(255, 30, 100, 1), rgba(200, 0, 50, 0.85))",
           opacity: 0,
           willChange: "opacity",
           animation: "stfuFlash 2500ms ease-out forwards",
         }}
       />
-      {/* Bright red dim wash — clearly reads as "bad / punishment".
-          The opacity stays at 0.55 so the underlying video is still
-          visible but the tile is unmistakably tinted red. */}
+      {/* Bright red dim wash — clearly reads as "bad / punishment". */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(220, 0, 40, 0.55)",
+          background: "rgba(255, 20, 60, 0.65)",
           opacity: 0,
           willChange: "opacity",
           animation: "stfuDim 2500ms ease-out forwards",
@@ -515,15 +512,17 @@ function CalibrationGrid({ tiles }: { tiles: TileMap }) {
 }
 
 function tileBoxStyle(tile: Tile): CSSProperties {
+  const inset = Math.round(tile.w * 0.06); // inset for white border + nameplate chrome
+  const r = Math.round(Math.min(tile.w, tile.h) * 0.20); // ~20% proportional border radius
   return {
     position: "absolute",
-    left: tile.x,
-    top: tile.y,
-    width: tile.w,
-    height: tile.h,
+    left: tile.x + inset,
+    top: tile.y + inset,
+    width: tile.w - inset * 2,
+    height: tile.h - inset * 2,
     overflow: "hidden",
     pointerEvents: "none",
-    borderRadius: 20,
+    borderRadius: r,
   };
 }
 
