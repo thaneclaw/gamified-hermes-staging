@@ -523,6 +523,7 @@ function tileBoxStyle(tile: Tile): CSSProperties {
     height: tile.h,
     overflow: "hidden",
     pointerEvents: "none",
+    borderRadius: 20,
   };
 }
 

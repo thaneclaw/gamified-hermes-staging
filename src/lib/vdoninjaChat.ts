@@ -229,14 +229,15 @@ function emit(
     console.log("[vdoninjaChat] emit — raw:", rawMsg.slice(0, 120), "parsed label:", parsedLabel, "parsed msg:", msg?.slice(0, 120));
   }
   if (!msg) return;
-  const label = parsedLabel || sidecarLabel || "Guest";
-  // Extra safety: if DOMParser left any literal tags in text nodes,
-  // strip them before the string reaches React (which escapes them).
-  const cleanMsg = stripHtmlTags(msg);
+
+  // VDO.Ninja sends labels as HTML fragments (e.g. "<b><span class='chat_name'>Guest1</span>:</b>").
+  // parseChatBody knows how to extract .chat_name and strip the wrapper.
+  const { label: parsedSidecarLabel } = parseChatBody(sidecarLabel);
+  const label = parsedLabel || parsedSidecarLabel || stripHtmlTags(sidecarLabel) || "Guest";
   if (import.meta.env.DEV) {
-    console.log("[vdoninjaChat] emit — final:", { label, msg: cleanMsg.slice(0, 120) });
+    console.log("[vdoninjaChat] emit — final:", { label, msg: msg.slice(0, 120) });
   }
-  callback({ msg: cleanMsg, label, ts: Date.now() });
+  callback({ msg, label, ts: Date.now() });
 }
 
 /**
