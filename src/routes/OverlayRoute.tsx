@@ -40,7 +40,7 @@ const EMOJI_PER_SEAT_CAP = 30;
 const EMOJI_FLOAT_MS = 1500;
 
 /** Card animation total length (matches the per-card keyframes in index.css). */
-const CARD_ANIM_MS = 2000;
+const CARD_ANIM_MS = 2500;
 
 /**
  * Calibration palette — stable per-seat colors so each rect is easy to
@@ -259,20 +259,23 @@ function EmojiFloat({ sprite, tile }: EmojiFloatProps) {
 }
 
 /**
- * STFU card animation (target tile only, ~2s).
+ * STFU card animation (target tile only, ~2.5s).
  *
- * Layout:
- *   1. Tile-shake wrapper (transform-only) wraps everything so the whole
- *      tile region rocks for the first 100ms.
- *   2. Red radial flash on the tile, fading in fast and decaying.
- *   3. Dim/desaturate wash holds for the bulk of the animation.
- *   4. Two-line "SHUT THE / !@#$ UP!!" text slams in via the existing
- *      `slamIn` keyframe + a multi-layer drop-shadow stack (red + black)
- *      cribbed from Chris's repo for the same dramatic stamp effect.
+ * v1.2 intensity boost: aggressive flash, deeper dim wash, red inset
+ * glow ring, heavier text drop-shadow stack — so it feels like a
+ * "moment", not a hiccup.
  *
- * Sized so the longest line ("SHUT THE !@#$ UP!!") fits the 280px-wide
- * tile with a margin: clamps based on tile.w so calibrated tiles still
- * read clean.
+ * Layers:
+ *   1. Tile-shake wrapper (transform-only) — rocks for the first 100ms.
+ *   2. Red inset glow ring around the tile edge — pulses 0 → 0.8 → 0
+ *      across the full duration.
+ *   3. Aggressive red radial flash, fast in, decays.
+ *   4. Heavy dim wash holds dark for the bulk of the animation (the
+ *      perceived "brightness(0.25) saturate(0.3)" effect — done with a
+ *      near-opaque dark overlay because the underlying video lives in a
+ *      different OBS source so a CSS filter can't reach it).
+ *   5. Two-line "SHUT THE / !@#$ UP!!" slams in with a stacked-stamp
+ *      drop-shadow (red + red + red + black + glow).
  */
 function StfuCard({ tile }: { tile: Tile }) {
   // 32px at the spec'd 280px width; scales down on smaller tiles.
@@ -286,36 +289,46 @@ function StfuCard({ tile }: { tile: Tile }) {
         animation: "stfuTileShake 360ms ease-in-out",
       }}
     >
-      {/* Red flash — fast in, decays. */}
+      {/* Red inset glow ring around tile edge — pulses 0 → 0.8 → 0. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          boxShadow:
+            "inset 0 0 30px #ff2e6b, inset 0 0 60px rgba(255, 46, 107, 0.65)",
+          opacity: 0,
+          willChange: "opacity",
+          animation: "stfuGlowRing 2500ms ease-in-out forwards",
+        }}
+      />
+      {/* Aggressive red flash — fast in, decays through the hold. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 50% 45%, rgba(255, 60, 100, 0.9), rgba(180, 0, 30, 0.55))",
+            "radial-gradient(circle at 50% 45%, rgba(255, 46, 107, 0.95), rgba(180, 0, 30, 0.7))",
           mixBlendMode: "multiply",
           opacity: 0,
           willChange: "opacity",
-          animation: "stfuFlash 2000ms ease-out forwards",
+          animation: "stfuFlash 2500ms ease-out forwards",
         }}
       />
-      {/* Dim + desaturate wash — uses backdrop-style filter approximation
-          via a dark overlay (the underlying VDO video is in another OBS
-          source so we can't apply CSS filter to it directly; the dark
-          wash reads as "muted" against the red flash on top). */}
+      {/* Heavy dim wash — near-black overlay reads as "brightness 0.25
+          saturate 0.3" against the underlying video composited below in
+          OBS. CSS filters can't reach the video (it lives in another
+          OBS source) so we fake the look with opacity. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background: "rgba(15, 0, 8, 0.6)",
+          background: "rgba(8, 0, 4, 0.85)",
           opacity: 0,
           willChange: "opacity",
-          animation: "stfuDim 2000ms ease-out forwards",
+          animation: "stfuDim 2500ms ease-out forwards",
         }}
       />
-      {/* The slam text — the hero of the animation. Two lines, line-height
-          0.95 so they hug. Multi-layer drop-shadow gives the stacked
-          stamp look (red offset + black offset behind for depth). */}
+      {/* The slam text — heavier drop-shadow stack for v1.2 intensity. */}
       <div
         style={{
           position: "absolute",
@@ -325,7 +338,7 @@ function StfuCard({ tile }: { tile: Tile }) {
           opacity: 0,
           willChange: "transform, opacity",
           animation:
-            "stfuSlamText 2000ms cubic-bezier(0.2, 1.5, 0.4, 1) forwards",
+            "stfuSlamText 2500ms cubic-bezier(0.2, 1.5, 0.4, 1) forwards",
           fontFamily:
             '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif',
           fontWeight: 900,
@@ -336,14 +349,14 @@ function StfuCard({ tile }: { tile: Tile }) {
           textAlign: "center",
           whiteSpace: "pre",
           textShadow: [
-            // Red offset — the brand stamp
+            // Tripled red offset — heavier brand stamp
             "3px 3px 0 #ff2e6b",
-            "3px 3px 0 #ff2e6b",
-            // Black offset behind that for depth
-            "5px 5px 0 #000",
-            "5px 5px 0 #000",
-            // Soft outer glow so it pops off the video below
-            "0 0 18px rgba(255, 46, 107, 0.85)",
+            "4px 4px 0 #ff2e6b",
+            "5px 5px 0 #ff2e6b",
+            // Black offset further out for depth
+            "7px 7px 0 #000",
+            // Stronger outer red glow
+            "0 0 24px rgba(255, 46, 107, 1)",
           ].join(", "),
         }}
       >
@@ -354,77 +367,97 @@ function StfuCard({ tile }: { tile: Tile }) {
 }
 
 /**
- * MIC DROP card animation (target tile only, ~2s).
+ * MIC DROP card animation (target tile only, ~2.5s).
  *
- * Layout:
- *   1. Amber radial flash on the tile (no shake — celebration, not
- *      disruption).
- *   2. "MIC DROP" text slams in via slamIn with an amber/black multi-
- *      layer drop-shadow stack matching the STFU treatment.
- *   3. Mic emoji falls from the top of the tile and lands beside the
- *      text with a small bounce.
- *   4. Tile edge gets a gentle gold inset glow ring that pulses opacity.
+ * v1.2: green theme (positive crowning), dramatic mic that falls
+ * THROUGH the entire tile vertically and exits the bottom edge.
+ *
+ * Layers:
+ *   1. Brief green/amber flash (t=0–200ms) — quick celebratory pop.
+ *   2. Green inset glow ring around tile edge — pulses 0 → 0.8 → 0
+ *      across the full duration.
+ *   3. Falling mic emoji (~100px+, depending on tile.h) — starts above
+ *      the tile, falls smoothly through it on a weighty cubic-bezier,
+ *      exits the bottom edge entirely. Clipped to tile bounds via the
+ *      tile's `overflow: hidden`. Per-tile start/end offsets passed via
+ *      CSS custom properties so the keyframe stays generic.
+ *   4. "MIC DROP" slams in at the TOP of the tile around t=300ms,
+ *      holds during the mic's fall, then fades.
  */
 function MicDropCard({ tile }: { tile: Tile }) {
   const fontSize = Math.max(20, Math.round(tile.w * 0.13));
-  const micSize = Math.max(28, Math.round(tile.w * 0.18));
+  // Spec: at least 100px font-size, possibly larger. Scale with tile
+  // height so smaller calibrated tiles still get a proportionate mic.
+  const micSize = Math.max(100, Math.round(tile.h * 0.45));
+  // ±120% of tile height — ensures the mic starts FULLY above the tile
+  // and exits FULLY below it. Inlined as px so the keyframe can refer to
+  // it via var() without depending on a unit context.
+  const startY = -Math.round(tile.h * 1.2);
+  const endY = Math.round(tile.h * 1.2);
   return (
     <div style={tileBoxStyle(tile)}>
-      {/* Amber flash — quick in, holds soft, then fades. */}
+      {/* Brief green flash — t=0–200ms, then fades. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           background:
-            "radial-gradient(circle at 50% 45%, rgba(255, 200, 60, 0.78), rgba(255, 160, 0, 0.4))",
+            "radial-gradient(circle at 50% 45%, rgba(0, 217, 107, 0.85), rgba(0, 180, 90, 0.45))",
           mixBlendMode: "screen",
           opacity: 0,
           willChange: "opacity",
-          animation: "micFlash 2000ms ease-out forwards",
+          animation: "micFlash 2500ms ease-out forwards",
         }}
       />
-      {/* Gold ring around the tile edge — pulses gently while the text holds. */}
+      {/* Green inset glow ring around tile edge — pulses 0 → 0.8 → 0. */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           boxShadow:
-            "inset 0 0 32px rgba(255, 200, 60, 0.85), inset 0 0 80px rgba(255, 200, 60, 0.45)",
+            "inset 0 0 30px #00d96b, inset 0 0 60px rgba(0, 217, 107, 0.55)",
           opacity: 0,
           willChange: "opacity",
-          animation: "micGlowRing 2000ms ease-out forwards",
+          animation: "micGlowRing 2500ms ease-in-out forwards",
         }}
       />
-      {/* Mic emoji falling from the top — lands a touch left of the text. */}
+      {/* Falling mic — starts above tile (translateY(--mic-start-y)),
+          falls weighty through the tile, exits bottom (--mic-end-y).
+          Tile overflow:hidden makes it appear to enter and exit the
+          visible area cleanly. */}
       <div
         style={{
           position: "absolute",
           left: "50%",
-          top: "50%",
-          transform: "translate(calc(-50% - 2.5em), -200%) rotate(-12deg)",
+          top: 0,
+          transform: `translate(-50%, ${startY}px)`,
+          ["--mic-start-y" as string]: `${startY}px`,
+          ["--mic-end-y" as string]: `${endY}px`,
           willChange: "transform, opacity",
           animation:
-            "micEmojiFall 2000ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards",
+            "micEmojiFall 1200ms cubic-bezier(0.4, 0, 0.6, 1) 200ms forwards",
           fontSize: micSize,
           lineHeight: 1,
           fontFamily:
             '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
-          filter: "drop-shadow(0 4px 12px rgba(0, 0, 0, 0.55))",
+          filter:
+            "drop-shadow(0 0 12px rgba(0, 217, 107, 0.85)) drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7))",
         }}
       >
         {"\u{1F3A4}"}
       </div>
-      {/* Slam text — single line "MIC DROP", amber-stamped. */}
+      {/* Slam text — anchored near the TOP of the tile so the falling
+          mic passes behind/through the rest of the tile area. */}
       <div
         style={{
           position: "absolute",
           left: "50%",
-          top: "50%",
+          top: "18%",
           transform: "translate(-50%, -50%) scale(3) rotate(-2deg)",
           opacity: 0,
           willChange: "transform, opacity",
           animation:
-            "micSlamText 2000ms cubic-bezier(0.2, 1.5, 0.4, 1) forwards",
+            "micSlamText 2500ms cubic-bezier(0.2, 1.5, 0.4, 1) 300ms forwards",
           fontFamily:
             '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif',
           fontWeight: 900,
@@ -434,11 +467,11 @@ function MicDropCard({ tile }: { tile: Tile }) {
           textAlign: "center",
           whiteSpace: "nowrap",
           textShadow: [
-            "3px 3px 0 #ffcb45",
-            "3px 3px 0 #ffcb45",
-            "5px 5px 0 #000",
-            "5px 5px 0 #000",
-            "0 0 18px rgba(255, 203, 69, 0.85)",
+            "3px 3px 0 #00d96b",
+            "4px 4px 0 #00d96b",
+            "5px 5px 0 #00d96b",
+            "7px 7px 0 #000",
+            "0 0 24px rgba(0, 217, 107, 1)",
           ].join(", "),
         }}
       >
