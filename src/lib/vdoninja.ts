@@ -291,7 +291,7 @@ export function sendData(
     type: "pcs",
   };
   if (import.meta.env.DEV) {
-    console.log("[vdoninja] →", payload.type, payload);
+    console.log("[vdoninja] postMessage → iframe:", msg);
   }
   win.postMessage(msg, "*");
 }
@@ -311,6 +311,12 @@ export function onData(
   const handler = (event: MessageEvent) => {
     // Guard: only accept messages from our iframe (window.parent === us).
     const expectedSource = iframeRef.current?.contentWindow;
+    if (import.meta.env.DEV) {
+      console.log("[vdoninja] raw message:", {
+        sourceMatch: !expectedSource || event.source === expectedSource,
+        data: event.data,
+      });
+    }
     if (expectedSource && event.source !== expectedSource) return;
 
     const data = event.data as
@@ -319,7 +325,7 @@ export function onData(
     const payload = data?.dataReceived?.[NAMESPACE];
     if (!payload || typeof payload !== "object") return;
     if (import.meta.env.DEV) {
-      console.log("[vdoninja] ←", payload.type, payload);
+      console.log("[vdoninja] ← accepted payload:", payload.type, payload);
     }
     callback(payload);
   };
