@@ -13,7 +13,15 @@
  * Inbound: iframe → parent (whenever a chat message arrives in the room).
  *   event.data.action === 'incoming-chat'
  *     event.data.value = { msg, label, type, ts }
- * (VDO.Ninja's exact shape varies by build; we read defensively below.)
+ *
+ * In real builds, VDO.Ninja's `msg` field arrives as a pre-rendered
+ * HTML *fragment* like:
+ *   "<b><span class='chat_name'>Gnoc</span>:</b> hello"
+ * — i.e. the iframe has already styled the sender name. We parse that
+ * shape out into structured `{ label, msg }` so React can render the
+ * pieces with our own neon styling. All HTML is stripped from the body
+ * before it hits a React text node — never use `dangerouslySetInnerHTML`
+ * on iframe-supplied content.
  *
  * Reference: https://docs.vdo.ninja/guides/iframe-api-documentation
  */
@@ -25,7 +33,7 @@ export interface ChatMessage {
   id: string;
   /** Display name VDO.Ninja attached (the sender's `&label=`). */
   label: string;
-  /** The message text — already plain (no HTML) per VDO.Ninja's chat API. */
+  /** The message text — guaranteed plain text (HTML stripped on parse). */
   msg: string;
   /** Wall-clock timestamp the wrapper saw the message (ms). */
   ts: number;
@@ -35,6 +43,61 @@ export interface ChatMessage {
    * VDO.Ninja's iframe doesn't reliably reflect our own messages.
    */
   source: "local" | "remote";
+}
+
+// ── HTML parsing for VDO.Ninja chat ────────────────────────────────────
+
+interface ParsedChatBody {
+  /** Sender label extracted from the HTML, or null if not embedded. */
+  label: string | null;
+  /** Plain-text message body, with all HTML tags and entities stripped. */
+  msg: string;
+}
+
+/**
+ * Parses one VDO.Ninja chat `msg` field. Two shapes show up in the wild:
+ *
+ *   "<b><span class='chat_name'>Gnoc</span>:</b> hello"
+ *     → { label: "Gnoc", msg: "hello" }
+ *
+ *   "hello"  (already plain)
+ *     → { label: null, msg: "hello" }
+ *
+ * Strips every tag from the body via DOMParser + textContent — safer
+ * than a regex strip (handles attributes with `>` chars, malformed tags,
+ * HTML entities) and never feeds raw markup back into React.
+ */
+export function parseChatBody(raw: string): ParsedChatBody {
+  if (typeof raw !== "string") return { label: null, msg: "" };
+  // Fast path: no markup, return as-is.
+  if (!raw.includes("<")) return { label: null, msg: raw };
+
+  // DOMParser is the standard, XSS-safe way to convert HTML to text.
+  // The parsed document is detached and never inserted into the live DOM.
+  const doc = new DOMParser().parseFromString(raw, "text/html");
+  const body = doc.body;
+
+  // Drop script/style elements entirely so their body text doesn't leak
+  // into the rendered chat. Detached DOMParser docs don't execute scripts,
+  // but their `textContent` still includes the script source as text.
+  body.querySelectorAll("script, style").forEach((el) => el.remove());
+
+  // Look for VDO.Ninja's signature `.chat_name` span as the label.
+  const nameEl = body.querySelector(".chat_name");
+  let label: string | null = null;
+  if (nameEl) {
+    label = nameEl.textContent?.trim() || null;
+    // Remove the "<b>NAME:</b>" prefix block so the body text is just
+    // the message. Walk up to the bold/span wrapper so the trailing
+    // ":" is also cleared.
+    const wrapper = nameEl.closest("b") ?? nameEl;
+    wrapper.remove();
+  }
+
+  // textContent gives us a tag-free, entity-decoded string. Trim a
+  // leading ":" + whitespace VDO.Ninja injects between label and body.
+  const text = (body.textContent ?? "").replace(/^\s*:?\s*/, "").trimEnd();
+  return { label, msg: text };
 }
 
 /**
@@ -75,11 +138,11 @@ export function onChat(
     // Shape A: { action: 'incoming-chat', value: { msg, label, ts? } }
     if (data["action"] === "incoming-chat") {
       const value = data["value"] as Record<string, unknown> | undefined;
-      const msg = typeof value?.["msg"] === "string" ? (value["msg"] as string) : null;
-      const label = typeof value?.["label"] === "string" ? (value["label"] as string) : "";
-      if (msg) {
-        callback({ msg, label: label || "?", ts: Date.now() });
-      }
+      const rawMsg =
+        typeof value?.["msg"] === "string" ? (value["msg"] as string) : null;
+      const sidecarLabel =
+        typeof value?.["label"] === "string" ? (value["label"] as string) : "";
+      if (rawMsg) emit(rawMsg, sidecarLabel, callback);
       return;
     }
 
@@ -87,15 +150,33 @@ export function onChat(
     const chat = data["chat"];
     if (chat && typeof chat === "object") {
       const c = chat as Record<string, unknown>;
-      const msg = typeof c["msg"] === "string" ? (c["msg"] as string) : null;
-      const label = typeof c["label"] === "string" ? (c["label"] as string) : "";
-      if (msg) {
-        callback({ msg, label: label || "?", ts: Date.now() });
-      }
+      const rawMsg = typeof c["msg"] === "string" ? (c["msg"] as string) : null;
+      const sidecarLabel =
+        typeof c["label"] === "string" ? (c["label"] as string) : "";
+      if (rawMsg) emit(rawMsg, sidecarLabel, callback);
     }
   };
   window.addEventListener("message", handler);
   return () => window.removeEventListener("message", handler);
+}
+
+/**
+ * Normalizes one inbound chat field into the wrapper's `{label, msg}`
+ * shape. `rawMsg` may be a plain string OR VDO.Ninja's HTML fragment
+ * with the sender baked in via `<span class='chat_name'>`. The sidecar
+ * `label` field (when present) wins as a fallback when no chat_name
+ * span was embedded — and `Guest` is the last-resort label so we never
+ * render an empty bubble.
+ */
+function emit(
+  rawMsg: string,
+  sidecarLabel: string,
+  callback: (msg: Omit<ChatMessage, "id" | "source">) => void,
+): void {
+  const { label: parsedLabel, msg } = parseChatBody(rawMsg);
+  if (!msg) return;
+  const label = parsedLabel || sidecarLabel || "Guest";
+  callback({ msg, label, ts: Date.now() });
 }
 
 /**
