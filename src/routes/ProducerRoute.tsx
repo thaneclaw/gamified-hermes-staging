@@ -230,6 +230,14 @@ function ProducerPanel() {
           ts: Date.now(),
         });
       }
+      // Late-joining wrapper wants current roster names — push them now.
+      if (msg.type === "getRoster") {
+        sendRef.current?.({
+          type: "rosterUpdate",
+          names: roster,
+          ts: Date.now(),
+        });
+      }
     },
     [roster],
   );

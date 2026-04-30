@@ -86,94 +86,52 @@ function toQueryString(
     .join("&");
 }
 
-export interface GuestIframeParams {
+export interface IframeParams {
   /** VDO.Ninja stream id this guest publishes under (e.g., `i2zCGkA`). */
   push: string;
   /** Display label VDO.Ninja shows in the room (e.g., `Guest1`). */
   label: string;
+  /** Role mode — guests, host, and editor all share the same base layout
+   *  (view producer feed, hide participant list, small self-preview).
+   *  Editor adds `videodevice=0` so they publish audio-only (backstage crew). */
+  mode?: "guest" | "host" | "editor";
 }
 
 /**
- * Broadcast-mode flags layered on top of {@link GUEST_ROOM_PARAMS} for
- * the GUEST iframe only. Together they make the guest see only the
- * producer's composited stream (via explicit `view=TBSqrdw`).
+ * Builds the iframe `src` for ANY seat: guest, host, or editor.
  *
- *   view=TBSqrdw → locks the guest to the producer's actual video stream.
- *                    Replaces `broadcast` (which auto-discovers the
- *                    director) because broadcast breaks when extra
- *                    codirectors (overlay, producer, chat) are in the room.
- *   showlist=0   → hides VDO.Ninja's participant sidebar.
- *   minipreview  → small self-view so guests can confirm their cam.
- *   roombitrate=0 → inbound bandwidth safety belt; works in conjunction
- *                     with `view` so other guests don't compete for layout.
+ * Everyone sees the producer's composited stream (`view=TBSqrdw`) and
+ * gets a small self-preview (`minipreview`). The participant list is
+ * hidden (`showlist=0`) so the wrapper UI is the only visible chrome.
  *
- * Reference: https://docs.vdo.ninja/advanced-settings/video-parameters/broadcast
+ * Editor mode adds `videodevice=0` so the browser skips the camera
+ * permission and publishes audio-only — Phil can hear everyone without
+ * appearing on camera.
  */
-const GUEST_VIEW_PARAMS: Array<readonly [string, string | null]> = [
-  ["view", PRODUCER_VIEW_ID],
-  ["showlist", "0"],
-  ["minipreview", null],
-];
-
-/**
- * Builds the iframe `src` for a guest's wrapper. Layers the viewing
- * mode flags on top of the room constants so the guest sees only the
- * producer's composited stream (via explicit `view=TBSqrdw`).
- *
- * Using `view=` instead of `broadcast` because when codirector data-only
- * peers (overlay, producer, chat) are in the room, `broadcast` can
- * accidentally route guests to the wrong feed.
- */
-export function buildIframeUrl(params: GuestIframeParams): string {
-  const all = [
-    ...GUEST_ROOM_PARAMS,
-    ...GUEST_VIEW_PARAMS,
-    ["push", params.push] as const,
-    ["label", params.label] as const,
+export function buildIframeUrl(params: IframeParams): string {
+  const mode = params.mode ?? "guest";
+  const extras: Array<readonly [string, string | null]> = [
+    ["push", params.push],
+    ["label", params.label],
+    ["view", PRODUCER_VIEW_ID],
+    ["showlist", "0"],
+    ["minipreview", null],
   ];
+  if (mode === "editor") {
+    extras.push(["videodevice", "0"]);
+  }
+  const all = [...GUEST_ROOM_PARAMS, ...extras];
   return `${VDO_NINJA_BASE}?${toQueryString(all)}`;
 }
 
-/**
- * Builds the iframe `src` for the host's wrapper. Same base room params
- * as a guest but with `view=TBSqrdw` (instead of guests' explicit view)
- * so the host sees the producer's composited stream. Also hides the
- * participant list and gives the host a small self-view preview.
- */
-export function buildHostIframeUrl(params: GuestIframeParams): string {
-  const all = [
-    ...GUEST_ROOM_PARAMS,
-    ["push", params.push] as const,
-    ["label", params.label] as const,
-    ["view", PRODUCER_VIEW_ID] as const,
-    ["showlist", "0"] as const,
-    ["minipreview", null] as const,
-  ];
-  return `${VDO_NINJA_BASE}?${toQueryString(all)}`;
+/** @deprecated Use {@link buildIframeUrl} with `mode: "host"`. */
+export function buildHostIframeUrl(params: Omit<IframeParams, "mode">): string {
+  return buildIframeUrl({ ...params, mode: "host" });
 }
 
-/**
- * Builds the iframe `src` for the editor's wrapper. The editor is
- * backstage crew (records the backup, doesn't participate on camera),
- * so they:
- *   - Publish AUDIO only — `videodevice=0` skips the camera prompt
- *     entirely. They still get a microphone prompt for the mic.
- *   - View the producer's composited stream via `view=TBSqrdw` (same
- *     as guests) so the producer's video auto-fills the iframe.
- *   - Audio between editor and guests stays live for off-air
- *     coordination.
- */
-export function buildEditorIframeUrl(params: GuestIframeParams): string {
-  const all = [
-    ...GUEST_ROOM_PARAMS,
-    ["view", PRODUCER_VIEW_ID] as const,
-    ["showlist", "0"] as const,
-    ["minipreview", null] as const,
-    ["videodevice", "0"] as const,
-    ["push", params.push] as const,
-    ["label", params.label] as const,
-  ];
-  return `${VDO_NINJA_BASE}?${toQueryString(all)}`;
+/** @deprecated Use {@link buildIframeUrl} with `mode: "editor"`. */
+export function buildEditorIframeUrl(params: Omit<IframeParams, "mode">): string {
+  return buildIframeUrl({ ...params, mode: "editor" });
 }
 
 /**
@@ -259,6 +217,16 @@ export interface GetResetEpochEvent {
   ts: number;
 }
 
+/**
+ * Wrapper-on-mount roster sync request. Late-joining wrappers ask the
+ * producer to re-broadcast the current roster so they don't show stale
+ * "Guest 1" defaults while waiting for the next manual Save.
+ */
+export interface GetRosterEvent {
+  type: "getRoster";
+  ts: number;
+}
+
 /** Producer pushed updated tile coordinates from calibration mode. */
 export interface CalibrationEvent {
   type: "calibration";
@@ -273,6 +241,7 @@ export type EventPayload =
   | RosterUpdateEvent
   | CardResetEvent
   | GetResetEpochEvent
+  | GetRosterEvent
   | CalibrationEvent;
 
 // ── Iframe data channel ─────────────────────────────────────────────────

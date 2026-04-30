@@ -11,8 +11,6 @@ import { CARDS, type Card, type CardId } from "../cards";
 import { CHAT_EMOJIS, EMOJIS, type Emoji } from "../emojis";
 import type { SeatId } from "../coords";
 import {
-  buildEditorIframeUrl,
-  buildHostIframeUrl,
   buildIframeUrl,
   useVdoNinja,
   type EventPayload,
@@ -274,10 +272,12 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
 
   // On mount, ask the producer to (re)announce the latest reset epoch so
   // we can catch up on any reset broadcast that fired while we were closed.
+  // Also request the current roster so we don't show stale "Guest 1" names.
   // Small delay so the data channel is actually established first.
   useEffect(() => {
     const id = window.setTimeout(() => {
       send({ type: "getResetEpoch", ts: Date.now() });
+      send({ type: "getRoster", ts: Date.now() });
     }, 1500);
     return () => window.clearTimeout(id);
   }, [send]);
@@ -320,13 +320,17 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
   );
 
   const iframeSrc = useMemo(() => {
-    if (identity.kind === "host") {
-      return buildHostIframeUrl({ push, label: identity.label });
-    }
-    if (identity.kind === "editor") {
-      return buildEditorIframeUrl({ push, label: identity.label });
-    }
-    return buildIframeUrl({ push, label: identity.label });
+    const mode =
+      identity.kind === "host"
+        ? "host"
+        : identity.kind === "editor"
+          ? "editor"
+          : "guest";
+    return buildIframeUrl({
+      push,
+      label: identity.label,
+      mode,
+    });
   }, [identity, push]);
 
   // Editors are backstage crew — no cards, no emoji broadcasts. Their
