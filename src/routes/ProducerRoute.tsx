@@ -16,6 +16,7 @@ import {
   type TileMap,
 } from "../coords";
 import {
+  buildPlayUrl,
   buildOverlayDataOnlyUrl,
   useVdoNinja,
   type EventPayload,
@@ -182,6 +183,11 @@ function ProducerPanel() {
   // Form state — separate from `roster` so the user can edit then Save.
   const [draftRoster, setDraftRoster] = useState<Record<SeatId, string>>(roster);
   const [calibrate, setCalibrate] = useState(false);
+  const [linkMode, setLinkMode] = useState<"guest" | "host" | "editor">("guest");
+  const [linkSeat, setLinkSeat] = useState<SeatId>("L1");
+  const [linkPush, setLinkPush] = useState("");
+  const [linkLabel, setLinkLabel] = useState<string>(draftRoster["L1"] ?? "Guest 1");
+  const [copied, setCopied] = useState(false);
   const [tiles, setTiles] = useState<TileMap>(loadCalibratedTiles);
   const [feed, setFeed] = useState<readonly FeedEntry[]>([]);
   const feedIdRef = useRef(0);
@@ -310,6 +316,24 @@ function ProducerPanel() {
     send({ type: "calibration", tiles: fresh, ts: Date.now() });
   }, [send]);
 
+  const generatedUrl = useMemo(() => {
+    if (!linkPush.trim()) return "";
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    return buildPlayUrl({
+      base,
+      mode: linkMode,
+      seat: linkMode === "guest" ? linkSeat : undefined,
+      push: linkPush.trim(),
+      label:
+        linkLabel.trim() ||
+        (linkMode === "guest"
+          ? "Guest"
+          : linkMode === "host"
+            ? "Host"
+            : "Editor"),
+    });
+  }, [linkMode, linkSeat, linkPush, linkLabel]);
+
   return (
     <div style={styles.shell}>
       <header style={styles.headerBar}>
@@ -410,6 +434,72 @@ function ProducerPanel() {
           <span style={styles.hint}>
             Zeroes per-guest counters and re-enables both card buttons in every wrapper.
           </span>
+        </div>
+      </Section>
+
+      <Section title="Participant links">
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={styles.row}>
+            <select
+              value={linkMode}
+              onChange={(e) => setLinkMode(e.target.value as "guest" | "host" | "editor")}
+              style={styles.input}
+            >
+              <option value="guest">Guest</option>
+              <option value="host">Host</option>
+              <option value="editor">Editor</option>
+            </select>
+            {linkMode === "guest" && (
+              <select
+                value={linkSeat}
+                onChange={(e) => {
+                  const seat = e.target.value as SeatId;
+                  setLinkSeat(seat);
+                  setLinkLabel(draftRoster[seat] ?? defaultRoster()[seat]);
+                }}
+                style={styles.input}
+              >
+                {SEAT_ORDER.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            )}
+            <input
+              type="text"
+              placeholder="Push ID (e.g. i2zCGkA)"
+              value={linkPush}
+              onChange={(e) => setLinkPush(e.target.value)}
+              style={{ ...styles.input, flex: 1 }}
+              spellCheck={false}
+            />
+            <input
+              type="text"
+              placeholder="Label"
+              value={linkLabel}
+              onChange={(e) => setLinkLabel(e.target.value)}
+              style={{ ...styles.input, flex: 1 }}
+              spellCheck={false}
+            />
+          </div>
+          {generatedUrl && (
+            <div style={styles.row}>
+              <code style={styles.codeBlock}>{generatedUrl}</code>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(generatedUrl);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                style={styles.primaryButton}
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+          )}
+          {!generatedUrl && (
+            <span style={styles.hint}>Enter a push ID to generate a link.</span>
+          )}
         </div>
       </Section>
 
@@ -918,6 +1008,18 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 700,
     outline: "none",
     letterSpacing: 1,
+  },
+  codeBlock: {
+    flex: 1,
+    fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+    fontSize: 12,
+    background: "#0a0a12",
+    border: `1px solid ${NEON.panelEdge}`,
+    borderRadius: 6,
+    padding: "8px 10px",
+    color: NEON.cyan,
+    wordBreak: "break-all",
+    overflowWrap: "break-word",
   },
   gateError: {
     fontSize: 11,

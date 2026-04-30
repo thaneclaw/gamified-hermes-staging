@@ -135,6 +135,36 @@ export function buildEditorIframeUrl(params: Omit<IframeParams, "mode">): string
 }
 
 /**
+ * Builds the public gamified wrapper URL (e.g., `/play?seat=1&push=...&label=...`).
+ * This is what guests open in their browser. We don't pass a seat index
+ * for host/editor roles — only guests need a numbered seat.
+ */
+export function buildPlayUrl(params: {
+  /** Origin of the deployed site (e.g., `https://example.pages.dev`). */
+  base: string;
+  mode: "guest" | "host" | "editor";
+  /** Seat id, required for guests so the UI knows which card slot is yours. */
+  seat?: SeatId;
+  /** VDO.Ninja stream id this guest publishes under. */
+  push: string;
+  /** Display label VDO.Ninja shows in the room. */
+  label: string;
+}): string {
+  const u = new URL("/play", params.base);
+  u.searchParams.set("push", params.push);
+  u.searchParams.set("label", params.label);
+  if (params.mode === "guest" && params.seat) {
+    const idx: Record<SeatId, number> = {
+      L1: 1, L2: 2, L3: 3, R1: 4, R2: 5, R3: 6,
+    };
+    u.searchParams.set("seat", String(idx[params.seat]));
+  } else {
+    u.searchParams.set("role", params.mode);
+  }
+  return u.toString();
+}
+
+/**
  * Builds the URL the OBS overlay browser source loads. Joins as a
  * data-only codirector so it can broadcast sendData to all guests AND
  * receive their events. This is the ONLY place codirector is needed.
