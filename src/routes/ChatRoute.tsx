@@ -6,7 +6,7 @@ import {
   type CSSProperties,
 } from "react";
 import { useSearchParams } from "react-router-dom";
-import { buildChatOnlyUrl, useVdoNinja, type EventPayload } from "../lib/vdoninja";
+import { buildChatOnlyUrl, useVdoNinja } from "../lib/vdoninja";
 import { useVdoNinjaChat, type ChatMessage } from "../lib/vdoninjaChat";
 
 // ── neon palette (sync with PlayRoute) ──────────────────────────────────
@@ -52,23 +52,9 @@ export function ChatRoute() {
     [label],
   );
 
-  // Also listen for chat via our reliable sendData pipe (reaches guests
-  // in view-only mode where VDO.Ninja's native chat is known to fail).
-  const onDataMessage = useCallback(
-    (msg: EventPayload) => {
-      if (msg.type === "chat") {
-        if (!isOwnLabel(label, msg.label)) {
-          setMessages((prev) => [
-            ...prev,
-            { id: nextChatId(), source: "remote", label: msg.label, msg: msg.msg, ts: msg.ts },
-          ]);
-        }
-      }
-    },
-    [label],
-  );
-
-  const { iframeRef, send } = useVdoNinja({ onMessage: onDataMessage });
+  const { iframeRef } = useVdoNinja({
+    onMessage: (/* ignored — chat-only route, no card/emoji/roster events */) => { },
+  });
 
   const { send: sendChat } = useVdoNinjaChat(iframeRef, onChatIncoming);
 
@@ -76,23 +62,22 @@ export function ChatRoute() {
     (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return false;
-      // Broadcast via our reliable sendData pipe (reaches all peers).
-      send({ type: "chat", label, msg: trimmed, ts: Date.now() });
-      // Also try native iframe chat (best-effort).
-      sendChat(trimmed);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: nextChatId(),
-          source: "local",
-          label,
-          msg: trimmed,
-          ts: Date.now(),
-        },
-      ]);
-      return true;
+      const ok = sendChat(trimmed);
+      if (ok) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: nextChatId(),
+            source: "local",
+            label,
+            msg: trimmed,
+            ts: Date.now(),
+          },
+        ]);
+      }
+      return ok;
     },
-    [label, sendChat, send],
+    [label, sendChat],
   );
 
   const iframeSrc = buildChatOnlyUrl({ push, label });
