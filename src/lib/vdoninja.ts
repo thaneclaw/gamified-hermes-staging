@@ -234,6 +234,17 @@ export interface RosterUpdateEvent {
   ts: number;
 }
 
+/** Chat message broadcast via sendData so it reaches all peers,
+ *  even guests in viewer mode where VDO.Ninja's native chat is unreliable. */
+export interface ChatBroadcastEvent {
+  type: "chat";
+  /** Display name of the sender (their label). */
+  label: string;
+  /** The plain-text message body. */
+  msg: string;
+  ts: number;
+}
+
 /**
  * Producer fired "Reset cards". Wrappers compare `resetEpoch` against
  * the highest one they've already seen (persisted) and clear their
@@ -273,7 +284,8 @@ export type EventPayload =
   | RosterUpdateEvent
   | CardResetEvent
   | GetResetEpochEvent
-  | CalibrationEvent;
+  | CalibrationEvent
+  | ChatBroadcastEvent;
 
 // ── Iframe data channel ─────────────────────────────────────────────────
 

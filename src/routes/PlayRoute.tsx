@@ -232,6 +232,12 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
   const onMessage = useCallback(
     (msg: EventPayload) => {
       switch (msg.type) {
+        case "chat":
+          setChatMessages((prev) => [
+            ...prev,
+            { id: nextChatId(), source: "remote", label: msg.label, msg: msg.msg, ts: msg.ts },
+          ]);
+          break;
         case "rosterUpdate":
           setRoster(msg.names);
           saveRoster(msg.names);
@@ -301,22 +307,25 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
     (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return false;
-      const ok = sendChat(trimmed);
-      if (ok) {
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            id: nextChatId(),
-            source: "local",
-            label: identity.label,
-            msg: trimmed,
-            ts: Date.now(),
-          },
-        ]);
-      }
-      return ok;
+      // Broadcast via our reliable sendData pipe so every peer receives
+      // the message, even guests in view-only mode where VDO.Ninja's
+      // native chat is known to fail.
+      send({ type: "chat", label: identity.label, msg: trimmed, ts: Date.now() });
+      // Also attempt native iframe chat (best-effort — may no-op for viewers).
+      sendChat(trimmed);
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: nextChatId(),
+          source: "local",
+          label: identity.label,
+          msg: trimmed,
+          ts: Date.now(),
+        },
+      ]);
+      return true;
     },
-    [identity.label, sendChat],
+    [identity.label, sendChat, send],
   );
 
   const iframeSrc = useMemo(() => {
