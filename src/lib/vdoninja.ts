@@ -172,7 +172,7 @@ export function buildHostIframeUrl(params: GuestIframeParams): string {
 export function buildEditorIframeUrl(params: GuestIframeParams): string {
   const all = [
     ...GUEST_ROOM_PARAMS,
-    ["broadcast", null] as const,
+    ["broadcast", PRODUCER_VIEW_ID] as const,
     ["showlist", "0"] as const,
     ["minipreview", null] as const,
     ["videodevice", "0"] as const,
