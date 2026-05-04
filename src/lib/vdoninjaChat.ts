@@ -134,10 +134,21 @@ export function onChat(
   callback: (msg: Omit<ChatMessage, "id" | "source">) => void,
 ): () => void {
   const handler = (event: MessageEvent) => {
-    const expectedSource = iframeRef.current?.contentWindow;
-    if (expectedSource && event.source !== expectedSource) return;
     const data = event.data as Record<string, unknown> | null | undefined;
     if (!data || typeof data !== "object") return;
+
+    // Soft source check: if the iframe is present, verify the origin looks
+    // like VDO.Ninja. We skip strict event.source === contentWindow because
+    // VDO.Ninja navigates the iframe after load, invalidating the ref.
+    const win = iframeRef.current?.contentWindow;
+    if (
+      win &&
+      event.source !== win &&
+      event.origin !== "https://vdo.ninja" &&
+      event.origin !== "https://www.vdo.ninja"
+    ) {
+      return;
+    }
 
     // Always log in DEV so we can see what VDO.Ninja actually sends.
     if (import.meta.env.DEV) {
@@ -229,14 +240,15 @@ function emit(
     console.log("[vdoninjaChat] emit — raw:", rawMsg.slice(0, 120), "parsed label:", parsedLabel, "parsed msg:", msg?.slice(0, 120));
   }
   if (!msg) return;
-  const label = parsedLabel || sidecarLabel || "Guest";
-  // Extra safety: if DOMParser left any literal tags in text nodes,
-  // strip them before the string reaches React (which escapes them).
-  const cleanMsg = stripHtmlTags(msg);
+
+  // VDO.Ninja sends labels as HTML fragments (e.g. "<b><span class='chat_name'>Guest1</span>:</b>").
+  // parseChatBody knows how to extract .chat_name and strip the wrapper.
+  const { label: parsedSidecarLabel } = parseChatBody(sidecarLabel);
+  const label = parsedLabel || parsedSidecarLabel || stripHtmlTags(sidecarLabel) || "Guest";
   if (import.meta.env.DEV) {
-    console.log("[vdoninjaChat] emit — final:", { label, msg: cleanMsg.slice(0, 120) });
+    console.log("[vdoninjaChat] emit — final:", { label, msg: msg.slice(0, 120) });
   }
-  callback({ msg: cleanMsg, label, ts: Date.now() });
+  callback({ msg, label, ts: Date.now() });
 }
 
 /**

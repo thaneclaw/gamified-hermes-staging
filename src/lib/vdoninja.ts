@@ -180,11 +180,26 @@ export function buildEditorIframeUrl(params: GuestIframeParams): string {
 }
 
 /**
- * Builds the URL the OBS overlay browser source loads. Joins the room
- * as a data-only peer (no video/audio) and listens for our broadcasts.
+ * Builds the URL the OBS overlay browser source loads. Joins as a
+ * data-only codirector so it can broadcast sendData to all guests AND
+ * receive their events. This is the ONLY place codirector is needed.
  */
 export function buildOverlayDataOnlyUrl(): string {
   return `${VDO_NINJA_BASE}?${toQueryString(OVERLAY_PARAMS)}`;
+}
+
+/**
+ * Builds the URL for the standalone chat browser source. Simple room
+ * join — no codirector, no dataonly. VDO.Ninja's built-in chat works
+ * over the room's websocket, not our P2P data channel.
+ */
+export function buildChatOnlyUrl(params: { push: string; label: string }): string {
+  const all = [
+    ...GUEST_ROOM_PARAMS,
+    ["push", params.push] as const,
+    ["label", params.label] as const,
+  ];
+  return `${VDO_NINJA_BASE}?${toQueryString(all)}`;
 }
 
 // ── Event payloads ──────────────────────────────────────────────────────
