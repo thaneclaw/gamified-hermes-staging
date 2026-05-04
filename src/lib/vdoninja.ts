@@ -113,7 +113,10 @@ export interface GuestIframeParams {
  * Reference: https://docs.vdo.ninja/advanced-settings/video-parameters/broadcast
  */
 const GUEST_BROADCAST_PARAMS: Array<readonly [string, string | null]> = [
-  ["broadcast", null],
+  // Explicit stream-id so broadcast targets the producer's composited
+  // feed. Without this, a codirector in the room becomes the "director"
+  // and &broadcast auto-discovers the wrong peer (black screen).
+  ["broadcast", PRODUCER_VIEW_ID],
   ["showlist", "0"],
   ["minipreview", null],
 ];
