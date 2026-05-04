@@ -45,6 +45,7 @@ export const PRODUCER_VIEW_ID = "TBSqrdw";
 const GUEST_ROOM_PARAMS: Array<readonly [string, string | null]> = [
   ["room", "GamifiedShow"],
   ["hash", "1f71"],
+  ["password", "gaming"],
   ["q", null],
   ["tips", null],
   ["roombitrate", "0"],
