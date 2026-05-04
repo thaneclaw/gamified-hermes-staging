@@ -386,14 +386,13 @@ function MicDropCard({ tile }: { tile: Tile }) {
   // Spec: at least 100px font-size, possibly larger. Scale with tile
   // height so smaller calibrated tiles still get a proportionate mic.
   const micSize = Math.max(100, Math.round(tile.h * 0.45));
-  // Starts right at the top edge of the target tile.
-  const startY = -10;
-  // End at tile bottom MINUS mic height so the emoji's bottom sits
-  // flush with the tile bottom. Without this offset the emoji's 126px
-  // (or more) body extends past the tile into the adjacent camera below.
-  const endY = tile.h + 10 - micSize;
+  // ±120% of tile height — ensures the mic starts FULLY above the tile
+  // and exits FULLY below it. Inlined as px so the keyframe can refer to
+  // it via var() without depending on a unit context.
+  const startY = -Math.round(tile.h * 1.2);
+  const endY = Math.round(tile.h * 1.2);
   return (
-    <div style={cardBoxStyle(tile)}>
+    <div style={tileBoxStyle(tile)}>
       {/* Brief green flash — t=0–200ms, then fades. */}
       <div
         style={{
@@ -420,9 +419,9 @@ function MicDropCard({ tile }: { tile: Tile }) {
         }}
       />
       {/* Falling mic — starts above tile (translateY(--mic-start-y)),
-          falls weighty through the tile, stops at the bottom edge.
-          The mic is clipped to the target tile by the parent cardBoxStyle
-          bleed bounds; it won't bleed into the next camera below. */}
+          falls weighty through the tile, exits bottom (--mic-end-y).
+          Tile overflow:hidden makes it appear to enter and exit the
+          visible area cleanly. */}
       <div
         style={{
           position: "absolute",
@@ -430,9 +429,6 @@ function MicDropCard({ tile }: { tile: Tile }) {
           top: 0,
           transform: `translate(-50%, ${startY}px)`,
           ["--mic-start-y" as string]: `${startY}px`,
-          // End at tile bottom MINUS mic height so the emoji's
-          // bottom edge sits flush with the tile bottom — it stays
-          // within the target tile and never bleeds into adjacent cameras.
           ["--mic-end-y" as string]: `${endY}px`,
           willChange: "transform, opacity",
           animation:
@@ -447,12 +443,13 @@ function MicDropCard({ tile }: { tile: Tile }) {
       >
         {"\u{1F3A4}"}
       </div>
-      {/* Slam text — centered in the tile like STFU */}
+      {/* Slam text — anchored near the TOP of the tile so the falling
+          mic passes behind/through the rest of the tile area. */}
       <div
         style={{
           position: "absolute",
           left: "50%",
-          top: "50%",
+          top: "18%",
           transform: "translate(-50%, -50%) scale(3) rotate(-2deg)",
           opacity: 0,
           willChange: "transform, opacity",
