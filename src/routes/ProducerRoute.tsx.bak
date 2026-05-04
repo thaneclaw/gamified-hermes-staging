@@ -25,11 +25,6 @@ import {
   isProducerAuthenticated,
   persistProducerAuth,
 } from "../lib/auth";
-import { CHAT_EMOJIS } from "../emojis";
-import {
-  useVdoNinjaChat,
-  type ChatMessage,
-} from "../lib/vdoninjaChat";
 
 // ── shared seat plumbing ────────────────────────────────────────────────
 
@@ -190,10 +185,8 @@ function ProducerPanel() {
   const [tiles, setTiles] = useState<TileMap>(loadCalibratedTiles);
   const [feed, setFeed] = useState<readonly FeedEntry[]>([]);
   const feedIdRef = useRef(0);
-  // Chat state — producer can see and send messages via the same iframe.
-  const [chatMessages, setChatMessages] = useState<readonly ChatMessage[]>([]);
-  const chatIdRef = useRef(0);
-  const nextChatId = () => `c${chatIdRef.current++}`;
+  // Latest reset epoch we've fired (persisted) — re-announced on demand so
+  // wrappers that join after a reset still catch up.
   const resetEpochRef = useRef<number>(loadResetEpoch());
   const rosterDirty =
     SEAT_ORDER.some((s) => draftRoster[s] !== roster[s]);
@@ -248,40 +241,6 @@ function ProducerPanel() {
     sendRef.current = send;
   }, [send]);
   const overlayUrl = useMemo(() => buildOverlayDataOnlyUrl(), []);
-
-  // ── chat wiring (same iframe, separate channel from sendData) ───────────
-  const onChatIncoming = useCallback(
-    (msg: { msg: string; label: string; ts: number }) => {
-      setChatMessages((prev) => [
-        ...prev,
-        { id: nextChatId(), source: "remote", ...msg },
-      ]);
-    },
-    [],
-  );
-  const { send: sendChat } = useVdoNinjaChat(iframeRef, onChatIncoming);
-
-  const sendChatMessage = useCallback(
-    (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed) return false;
-      const ok = sendChat(trimmed);
-      if (ok) {
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            id: nextChatId(),
-            source: "local",
-            label: "Producer",
-            msg: trimmed,
-            ts: Date.now(),
-          },
-        ]);
-      }
-      return ok;
-    },
-    [sendChat],
-  );
 
   const saveRoster = useCallback(() => {
     setRoster(draftRoster);
@@ -469,10 +428,6 @@ function ProducerPanel() {
         )}
       </Section>
 
-      <Section title="Chat">
-        <ChatPanel messages={chatMessages} onSend={sendChatMessage} />
-      </Section>
-
       {/* Hidden data-channel iframe — same pattern as /overlay. */}
       <iframe
         ref={iframeRef}
@@ -655,133 +610,6 @@ function NudgeButton({ onClick, label }: { onClick: () => void; label: string })
     <button type="button" onClick={onClick} style={styles.nudgeBtn}>
       {label}
     </button>
-  );
-}
-
-// ── chat panel ──────────────────────────────────────────────────────────
-
-interface ChatPanelProps {
-  messages: readonly ChatMessage[];
-  onSend: (text: string) => boolean;
-}
-
-function ChatPanel({ messages, onSend }: ChatPanelProps) {
-  const [draft, setDraft] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const listRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
-
-  const submit = () => {
-    if (!draft.trim()) return;
-    if (onSend(draft)) setDraft("");
-  };
-
-  const insertEmoji = (e: string) => {
-    const input = inputRef.current;
-    if (!input) {
-      setDraft((d) => d + e);
-      setPickerOpen(false);
-      return;
-    }
-    const start = input.selectionStart ?? draft.length;
-    const end = input.selectionEnd ?? draft.length;
-    const next = draft.slice(0, start) + e + draft.slice(end);
-    setDraft(next);
-    setPickerOpen(false);
-    requestAnimationFrame(() => {
-      input.focus();
-      const caret = start + e.length;
-      input.setSelectionRange(caret, caret);
-    });
-  };
-
-  return (
-    <div style={styles.chatSection}>
-      <div ref={listRef} style={styles.chatList}>
-        {messages.length === 0 ? (
-          <div style={styles.chatEmpty}>
-            Quiet so far — say something.
-          </div>
-        ) : (
-          messages.map((m) => (
-            <div key={m.id} style={styles.chatRow}>
-              <span
-                style={{
-                  ...styles.chatLabel,
-                  color: m.source === "local" ? NEON.pink : NEON.cyan,
-                }}
-              >
-                {m.source === "local" ? "you" : m.label}
-              </span>
-              <span style={styles.chatBody}>{m.msg}</span>
-            </div>
-          ))
-        )}
-      </div>
-      <div style={styles.chatComposerWrap}>
-        <div style={styles.chatComposer}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={draft}
-            placeholder="Type a message…"
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                submit();
-              } else if (e.key === "Escape" && pickerOpen) {
-                setPickerOpen(false);
-              }
-            }}
-            style={styles.chatInput}
-            spellCheck
-          />
-          <button
-            type="button"
-            onClick={() => setPickerOpen((v) => !v)}
-            aria-label="Emoji picker"
-            style={{
-              ...styles.chatIconBtn,
-              color: pickerOpen ? NEON.cyan : NEON.textDim,
-            }}
-          >
-            {"\u{1F642}"}
-          </button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={!draft.trim()}
-            style={{
-              ...styles.chatSendBtn,
-              opacity: draft.trim() ? 1 : 0.5,
-              cursor: draft.trim() ? "pointer" : "default",
-            }}
-          >
-            Send
-          </button>
-        </div>
-        {pickerOpen && (
-          <div style={styles.chatPicker} role="menu">
-            {CHAT_EMOJIS.map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => insertEmoji(e)}
-                style={styles.chatPickerBtn}
-              >
-                {e}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -1089,119 +917,5 @@ const styles: Record<string, CSSProperties> = {
     textAlign: "center",
     minHeight: 14,
     letterSpacing: 0.5,
-  },
-  // ── chat panel styles ───────────────────────────────────────────────────
-  chatSection: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    minHeight: 160,
-    maxHeight: 300,
-  },
-  chatList: {
-    flex: "1 1 auto",
-    minHeight: 60,
-    maxHeight: 220,
-    overflowY: "auto",
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    padding: "4px 2px 4px 0",
-  },
-  chatRow: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 6,
-    fontSize: 13,
-    lineHeight: 1.35,
-  },
-  chatLabel: {
-    fontWeight: 800,
-    letterSpacing: 0.5,
-    flex: "0 0 auto",
-  },
-  chatBody: {
-    color: NEON.text,
-    overflowWrap: "anywhere",
-    flex: "1 1 auto",
-  },
-  chatEmpty: {
-    fontSize: 11,
-    color: NEON.textDim,
-    fontStyle: "italic",
-    paddingTop: 8,
-  },
-  chatComposerWrap: {
-    position: "relative",
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  },
-  chatComposer: {
-    display: "flex",
-    alignItems: "stretch",
-    gap: 4,
-  },
-  chatInput: {
-    appearance: "none",
-    flex: "1 1 auto",
-    minWidth: 0,
-    background: NEON.surfaceAlt,
-    border: `1px solid ${NEON.panelEdge}`,
-    borderRadius: 8,
-    padding: "7px 10px",
-    color: NEON.text,
-    fontSize: 13,
-    fontFamily: "inherit",
-    outline: "none",
-    fontWeight: 700,
-  },
-  chatIconBtn: {
-    appearance: "none",
-    background: NEON.surfaceAlt,
-    border: `1px solid ${NEON.panelEdge}`,
-    borderRadius: 8,
-    cursor: "pointer",
-    fontSize: 16,
-    width: 34,
-    fontFamily: "inherit",
-  },
-  chatSendBtn: {
-    appearance: "none",
-    background: NEON.cyan,
-    color: NEON.bg,
-    border: 0,
-    borderRadius: 8,
-    padding: "0 12px",
-    fontSize: 11,
-    fontWeight: 800,
-    letterSpacing: 1.2,
-    fontFamily: "inherit",
-    textTransform: "uppercase",
-  },
-  chatPicker: {
-    position: "absolute",
-    bottom: "calc(100% + 6px)",
-    right: 0,
-    background: NEON.surfaceAlt,
-    border: `1px solid ${NEON.panelEdge}`,
-    borderRadius: 10,
-    padding: 6,
-    boxShadow: `0 8px 22px rgba(0,0,0,0.55)`,
-    display: "grid",
-    gridTemplateColumns: "repeat(5, 1fr)",
-    gap: 4,
-    zIndex: 20,
-  },
-  chatPickerBtn: {
-    appearance: "none",
-    background: "transparent",
-    border: 0,
-    borderRadius: 6,
-    cursor: "pointer",
-    fontSize: 18,
-    width: 32,
-    height: 32,
-    fontFamily: "inherit",
   },
 };
