@@ -51,21 +51,27 @@ const GUEST_ROOM_PARAMS: Array<readonly [string, string | null]> = [
 ];
 
 /**
- * Overlay / producer iframe URL. Joins as a data-only codirector so
- * VDO.Ninja connects it to everyone in the room (codirector topology)
- * while keeping it media-less (dataonly). This gives us a peer that
- * can BOTH broadcast sendData AND receive events from all guests.
+ * Overlay / producer iframe URL. Joins as a codirector WITHOUT media
+ * tracks (novideo+noaudio) so it doesn't appear on camera, but WITH a
+ * push ID so VDO.Ninja establishes real WebRTC peer connections. Those
+ * connections give us a working P2P data channel — which is what
+ * `sendData` needs to actually deliver messages to guests.
  *
- * Previous attempts:
- *   - `dataonly` alone: can receive but not broadcast (no peer conn)
- *   - `novideo+noaudio+push`: nobody auto-connects to random push IDs
- *   - `dir+codirector+dataonly`: codirectors are wired to everyone
+ * `dataonly` was the wrong choice: it kills peer connections entirely,
+ * so there is no data channel for `sendData` to travel over. The
+ * message just vanishes into the void.
+ *
+ * `push=producer-gamified` gives the hidden iframe a stable identity
+ * so VDO.Ninja can route data to and from it. It's never viewed by
+ * anyone — it's a purely internal signalling peer.
  */
 const OVERLAY_PARAMS: Array<readonly [string, string | null]> = [
   ["dir", "GamifiedShow"],
   ["codirector", "gamifiedadmin"],
   ["password", "gaming"],
-  ["dataonly", null],
+  ["novideo", null],
+  ["noaudio", null],
+  ["push", "producer-gamified"],
   ["hash", "1f71"],
 ];
 
