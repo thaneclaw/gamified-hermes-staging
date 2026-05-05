@@ -199,7 +199,8 @@ export function buildChatOnlyUrl(params: { push: string; label: string }): strin
     ...GUEST_ROOM_PARAMS,
     ["videodevice", "0"] as const,
     ["audiodevice", "0"] as const,
-    ["push", params.push] as const,
+    ["autostart", null] as const,
+    ["cleanoutput", null] as const,
     ["label", params.label] as const,
   ];
   return `${VDO_NINJA_BASE}?${toQueryString(all)}`;
