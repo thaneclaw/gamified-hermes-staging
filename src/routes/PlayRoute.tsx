@@ -759,14 +759,26 @@ interface HostMutePanelProps {
 }
 
 function HostMutePanel({ roster, send }: HostMutePanelProps) {
+  const [mutedSeats, setMutedSeats] = useState<Set<SeatId>>(new Set());
+
   const muteSeat = useCallback(
     (seat: SeatId) => {
       send({ type: "muteGuest", target: seat, ts: Date.now() });
+      setMutedSeats((prev) => {
+        const next = new Set(prev);
+        // Toggle: if already muted, unmute state locally (guest can unmute
+        // themselves, but the host toggle gives visual feedback either way).
+        if (next.has(seat)) next.delete(seat);
+        else next.add(seat);
+        return next;
+      });
     },
     [send],
   );
   const muteAll = useCallback(() => {
     send({ type: "muteGuest", target: "all", ts: Date.now() });
+    // Mark all six seats as muted.
+    setMutedSeats(new Set(SEAT_ORDER));
   }, [send]);
 
   return (
@@ -778,22 +790,33 @@ function HostMutePanel({ roster, send }: HostMutePanelProps) {
         </button>
       </div>
       <div style={styles.muteList}>
-        {SEAT_ORDER.map((seat, i) => (
-          <button
-            key={seat}
-            type="button"
-            onClick={() => muteSeat(seat)}
-            style={styles.muteRow}
-          >
-            <span style={styles.muteSeatLabel}>
-              Guest {i + 1}
-            </span>
-            <span style={styles.muteName}>
-              {roster[seat] || seat}
-            </span>
-            <span style={styles.muteIcon}>🔇</span>
-          </button>
-        ))}
+        {SEAT_ORDER.map((seat, i) => {
+          const muted = mutedSeats.has(seat);
+          return (
+            <button
+              key={seat}
+              type="button"
+              onClick={() => muteSeat(seat)}
+              style={{
+                ...styles.muteRow,
+                ...(muted ? styles.muteRowMuted : {}),
+              }}
+            >
+              <span style={styles.muteSeatLabel}>
+                Guest {i + 1}
+              </span>
+              <span style={{
+                ...styles.muteName,
+                ...(muted ? styles.muteNameMuted : {}),
+              }}>
+                {roster[seat] || seat}
+              </span>
+              <span style={muted ? styles.muteIconMuted : styles.muteIcon}>
+                {muted ? "🔇" : "🎤"}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </section>
   );
@@ -1190,7 +1213,12 @@ const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
     textAlign: "left",
     fontFamily: '"Inter", system-ui, sans-serif',
-    transition: "background 120ms ease-out",
+    transition: "background 120ms ease-out, border-color 120ms ease-out",
+  },
+  muteRowMuted: {
+    background: "#2a1018",
+    borderColor: "#cc2244",
+    boxShadow: "0 0 12px #cc224444, inset 0 0 12px #cc224422",
   },
   muteSeatLabel: {
     fontSize: 10,
@@ -1208,8 +1236,15 @@ const styles: Record<string, CSSProperties> = {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  muteNameMuted: {
+    color: "#ff4466",
+  },
   muteIcon: {
     fontSize: 16,
     opacity: 0.6,
+  },
+  muteIconMuted: {
+    fontSize: 16,
+    opacity: 1,
   },
 };

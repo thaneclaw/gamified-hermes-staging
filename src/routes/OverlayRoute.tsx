@@ -470,13 +470,11 @@ function StfuCard({ tile }: { tile: Tile }) {
  */
 function MicDropCard({ tile }: { tile: Tile }) {
   const fontSize = Math.max(20, Math.round(tile.w * 0.13));
-  // Spec: at least 100px font-size, possibly larger. Scale with tile
-  // height so smaller calibrated tiles still get a proportionate mic.
   const micSize = Math.max(100, Math.round(tile.h * 0.45));
-  // Starts well above the tile for a dramatic top-to-bottom fall.
-  const startY = -(tile.h * 0.5);
-  // End at tile bottom so the mic exits cleanly.
-  const endY = tile.h + 10;
+  // Start well above the tile (full tile height above the top edge).
+  const startY = -(tile.h * 1.1);
+  // End well below the tile bottom so the mic exits completely.
+  const endY = tile.h + micSize + 20;
   return (
     <div style={cardBoxStyle(tile)}>
       {/* Brief green flash — t=0–200ms, then fades. */}
@@ -521,7 +519,7 @@ function MicDropCard({ tile }: { tile: Tile }) {
           ["--mic-end-y" as string]: `${endY}px`,
           willChange: "transform, opacity",
           animation:
-            "micEmojiFall 500ms cubic-bezier(0.55, 0, 1, 0.45) 100ms forwards",
+            "micEmojiFall 280ms cubic-bezier(0.55, 0, 1, 0.45) 80ms forwards",
           fontSize: micSize,
           lineHeight: 1,
           fontFamily:
