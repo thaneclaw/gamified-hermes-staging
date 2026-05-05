@@ -203,6 +203,32 @@ export function onChat(
         console.warn("[vdoninjaChat] top-level chat with no msg:", c);
       }
     }
+
+    // Shape C: { gotChat: { msg, label?, ... } } — the officially documented
+    // iframe API event per https://docs.vdo.ninja/guides/iframe-api-documentation
+    const gotChat = data["gotChat"];
+    if (gotChat && typeof gotChat === "object") {
+      if (import.meta.env.DEV) {
+        console.log("[vdoninjaChat] matched Shape C (gotChat)");
+      }
+      const gc = gotChat as Record<string, unknown>;
+      const rawMsg =
+        typeof gc["msg"] === "string"
+          ? (gc["msg"] as string)
+          : typeof gc["message"] === "string"
+            ? (gc["message"] as string)
+            : typeof gc["text"] === "string"
+              ? (gc["text"] as string)
+              : null;
+      const sidecarLabel =
+        typeof gc["label"] === "string" ? (gc["label"] as string) : "";
+      if (rawMsg) {
+        emit(rawMsg, sidecarLabel, callback);
+      } else if (import.meta.env.DEV) {
+        console.warn("[vdoninjaChat] gotChat with no msg:", gc);
+      }
+    }
+
     // If neither shape matched and this looks like it could be chat-related,
     // log it so we can discover new VDO.Ninja formats.
     if (
