@@ -281,6 +281,14 @@ export interface MuteGuestEvent {
   ts: number;
 }
 
+/** Host unmuted a specific guest or all guests. Sent when host toggles mute off. */
+export interface UnmuteGuestEvent {
+  type: "unmuteGuest";
+  /** Seat to unmute, or "all". */
+  target: SeatId | "all";
+  ts: number;
+}
+
 /** Discriminated union of every payload the app sends over the channel. */
 export type EventPayload =
   | EmojiEvent
@@ -289,7 +297,8 @@ export type EventPayload =
   | CardResetEvent
   | GetResetEpochEvent
   | CalibrationEvent
-  | MuteGuestEvent;
+  | MuteGuestEvent
+  | UnmuteGuestEvent;
 
 // ── Iframe data channel ─────────────────────────────────────────────────
 

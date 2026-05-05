@@ -266,33 +266,42 @@ function handleEmoji(
 // ── sprites ─────────────────────────────────────────────────────────────
 
 function CardAnnounceText({ announce }: { announce: CardAnnounce }) {
+  // STFU-style stacked text-shadow treatment — much heavier and dramatic.
+  const textShadow = [
+    `3px 3px 0 ${announce.color}`,
+    `4px 4px 0 ${announce.color}`,
+    `5px 5px 0 ${announce.color}`,
+    "7px 7px 0 #000",
+    `0 0 28px ${announce.color}cc`,
+  ].join(", ");
+
   return (
     <div
       style={{
         position: "absolute",
         left: CANVAS_W / 2,
-        top: CANVAS_H * 0.48,
+        top: CANVAS_H * 0.30,
         transform: "translate(-50%, -50%)",
         zIndex: 100,
         pointerEvents: "none",
-        animation: `cardAnnounceIn ${CARD_ANNOUNCE_MS}ms cubic-bezier(0.2, 1.2, 0.4, 1) forwards`,
+        animation: `cardAnnounceIn ${CARD_ANNOUNCE_MS}ms cubic-bezier(0.2, 1.5, 0.4, 1) forwards`,
       }}
     >
       <div
         style={{
-          padding: "16px 40px",
+          padding: "20px 48px",
           borderRadius: 16,
-          background: "rgba(10, 6, 16, 0.88)",
-          border: `2px solid ${announce.color}`,
-          boxShadow: `0 0 40px ${announce.color}66, 0 0 80px ${announce.color}33`,
+          background: "rgba(10, 6, 16, 0.90)",
+          border: `3px solid ${announce.color}`,
+          boxShadow: `0 0 50px ${announce.color}88, 0 0 100px ${announce.color}44`,
           fontFamily: '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif',
-          fontWeight: 800,
-          fontSize: 32,
-          letterSpacing: 1.5,
+          fontWeight: 900,
+          fontSize: 48,
+          letterSpacing: 1,
           color: "#ffffff",
           textAlign: "center",
           whiteSpace: "nowrap",
-          textShadow: `0 0 16px ${announce.color}cc`,
+          textShadow,
         }}
       >
         {announce.text}
@@ -471,10 +480,10 @@ function StfuCard({ tile }: { tile: Tile }) {
 function MicDropCard({ tile }: { tile: Tile }) {
   const fontSize = Math.max(20, Math.round(tile.w * 0.13));
   const micSize = Math.max(100, Math.round(tile.h * 0.45));
-  // Start well above the tile (full tile height above the top edge).
-  const startY = -(tile.h * 1.1);
-  // End well below the tile bottom so the mic exits completely.
-  const endY = tile.h + micSize + 20;
+  // Start above the tile for a dramatic top-to-bottom fall.
+  const startY = -(tile.h * 0.5);
+  // End at tile bottom so the mic exits cleanly.
+  const endY = tile.h + 10;
   return (
     <div style={cardBoxStyle(tile)}>
       {/* Brief green flash — t=0–200ms, then fades. */}
@@ -519,7 +528,7 @@ function MicDropCard({ tile }: { tile: Tile }) {
           ["--mic-end-y" as string]: `${endY}px`,
           willChange: "transform, opacity",
           animation:
-            "micEmojiFall 280ms cubic-bezier(0.55, 0, 1, 0.45) 80ms forwards",
+            "micEmojiFall 500ms cubic-bezier(0.55, 0, 1, 0.45) 100ms forwards",
           fontSize: micSize,
           lineHeight: 1,
           fontFamily:

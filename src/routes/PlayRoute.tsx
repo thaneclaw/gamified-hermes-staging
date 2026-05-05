@@ -270,10 +270,32 @@ function PlaySurface({ identity, push }: PlaySurfaceProps) {
             msg.target === "all" ||
             (identity.kind === "guest" && identity.seat === msg.target);
           if (isTarget) {
-            // Defer so we can read the ref after useVdoNinja provides it.
             window.setTimeout(() => {
               muteIframeRef.current?.contentWindow?.postMessage({ mic: false }, "*");
             }, 0);
+          }
+          if (isTarget || identity.kind === "host") {
+            // Notify host that this seat was muted so UI stays in sync.
+            window.dispatchEvent(
+              new CustomEvent("gamified-mute-state", { detail: { seat: msg.target, muted: true } }),
+            );
+          }
+          break;
+        }
+        case "unmuteGuest": {
+          if (identity.kind === "editor") break;
+          const isTarget =
+            msg.target === "all" ||
+            (identity.kind === "guest" && identity.seat === msg.target);
+          if (isTarget) {
+            window.setTimeout(() => {
+              muteIframeRef.current?.contentWindow?.postMessage({ mic: true }, "*");
+            }, 0);
+          }
+          if (isTarget || identity.kind === "host") {
+            window.dispatchEvent(
+              new CustomEvent("gamified-mute-state", { detail: { seat: msg.target, muted: false } }),
+            );
           }
           break;
         }
@@ -761,23 +783,50 @@ interface HostMutePanelProps {
 function HostMutePanel({ roster, send }: HostMutePanelProps) {
   const [mutedSeats, setMutedSeats] = useState<Set<SeatId>>(new Set());
 
-  const muteSeat = useCallback(
-    (seat: SeatId) => {
-      send({ type: "muteGuest", target: seat, ts: Date.now() });
+  // Listen for mute state changes from the data channel handler so
+  // the host's UI stays in sync if a guest self-unmutes or if mute-all fires.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { seat, muted } = (e as CustomEvent<{ seat: SeatId | "all"; muted: boolean }>).detail;
       setMutedSeats((prev) => {
         const next = new Set(prev);
-        // Toggle: if already muted, unmute state locally (guest can unmute
-        // themselves, but the host toggle gives visual feedback either way).
-        if (next.has(seat)) next.delete(seat);
-        else next.add(seat);
+        if (seat === "all") {
+          if (muted) SEAT_ORDER.forEach((s) => next.add(s));
+          else next.clear();
+        } else {
+          if (muted) next.add(seat);
+          else next.delete(seat);
+        }
         return next;
       });
+    };
+    window.addEventListener("gamified-mute-state", handler);
+    return () => window.removeEventListener("gamified-mute-state", handler);
+  }, []);
+
+  const muteSeat = useCallback(
+    (seat: SeatId) => {
+      const currently = mutedSeats.has(seat);
+      if (currently) {
+        send({ type: "unmuteGuest", target: seat, ts: Date.now() });
+        setMutedSeats((prev) => {
+          const next = new Set(prev);
+          next.delete(seat);
+          return next;
+        });
+      } else {
+        send({ type: "muteGuest", target: seat, ts: Date.now() });
+        setMutedSeats((prev) => {
+          const next = new Set(prev);
+          next.add(seat);
+          return next;
+        });
+      }
     },
-    [send],
+    [mutedSeats, send],
   );
   const muteAll = useCallback(() => {
     send({ type: "muteGuest", target: "all", ts: Date.now() });
-    // Mark all six seats as muted.
     setMutedSeats(new Set(SEAT_ORDER));
   }, [send]);
 
