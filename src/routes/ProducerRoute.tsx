@@ -17,7 +17,7 @@ import {
 } from "../coords";
 import {
   buildPlayUrl,
-  buildOverlayDataOnlyUrl,
+  buildProducerDataOnlyUrl,
   useVdoNinja,
   type EventPayload,
 } from "../lib/vdoninja";
@@ -254,7 +254,7 @@ function ProducerPanel() {
   useEffect(() => {
     sendRef.current = send;
   }, [send]);
-  const overlayUrl = useMemo(() => buildOverlayDataOnlyUrl(), []);
+  const overlayUrl = useMemo(() => buildProducerDataOnlyUrl(), []);
 
   const saveRoster = useCallback(() => {
     setRoster(draftRoster);

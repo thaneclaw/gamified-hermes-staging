@@ -51,27 +51,36 @@ const GUEST_ROOM_PARAMS: Array<readonly [string, string | null]> = [
 ];
 
 /**
- * Overlay / producer iframe URL. Joins as a codirector WITHOUT media
- * tracks (novideo+noaudio) so it doesn't appear on camera, but WITH a
- * push ID so VDO.Ninja establishes real WebRTC peer connections. Those
- * connections give us a working P2P data channel — which is what
- * `sendData` needs to actually deliver messages to guests.
+ * Params shared by both the producer's and overlay's hidden data-channel
+ * iframes. Both join as codirectors without media tracks (novideo+noaudio)
+ * so they don't appear on camera, but WITH push IDs so VDO.Ninja
+ * establishes real WebRTC peer connections. Those connections give us
+ * working P2P data channels for `sendData`.
  *
  * `dataonly` was the wrong choice: it kills peer connections entirely,
- * so there is no data channel for `sendData` to travel over. The
- * message just vanishes into the void.
+ * so there is no data channel for `sendData` to travel over.
  *
- * `push=producer-gamified` gives the hidden iframe a stable identity
- * so VDO.Ninja can route data to and from it. It's never viewed by
- * anyone — it's a purely internal signalling peer.
+ * Each iframe gets a UNIQUE push ID so they don't collide. If both
+ * share the same push ID, the second peer to join displaces the first
+ * and the data channel becomes unreliable.
  */
-const OVERLAY_PARAMS: Array<readonly [string, string | null]> = [
+const PRODUCER_DATA_PARAMS: Array<readonly [string, string | null]> = [
   ["dir", "GamifiedShow"],
   ["codirector", "gamifiedadmin"],
   ["password", "gaming"],
   ["novideo", null],
   ["noaudio", null],
   ["push", "producer-gamified"],
+  ["hash", "1f71"],
+];
+
+const OVERLAY_DATA_PARAMS: Array<readonly [string, string | null]> = [
+  ["dir", "GamifiedShow"],
+  ["codirector", "gamifiedadmin"],
+  ["password", "gaming"],
+  ["novideo", null],
+  ["noaudio", null],
+  ["push", "overlay-gamified"],
   ["hash", "1f71"],
 ];
 
@@ -171,12 +180,19 @@ export function buildPlayUrl(params: {
 }
 
 /**
- * Builds the URL the OBS overlay browser source loads. Joins as a
- * data-only codirector so it can broadcast sendData to all guests AND
- * receive their events. This is the ONLY place codirector is needed.
+ * Builds the URL for the producer's hidden data-channel iframe. Uses
+ * push=producer-gamified so it doesn't collide with the overlay iframe.
+ */
+export function buildProducerDataOnlyUrl(): string {
+  return `${VDO_NINJA_BASE}?${toQueryString(PRODUCER_DATA_PARAMS)}`;
+}
+
+/**
+ * Builds the URL for the OBS overlay's hidden data-channel iframe. Uses
+ * push=overlay-gamified so it doesn't collide with the producer iframe.
  */
 export function buildOverlayDataOnlyUrl(): string {
-  return `${VDO_NINJA_BASE}?${toQueryString(OVERLAY_PARAMS)}`;
+  return `${VDO_NINJA_BASE}?${toQueryString(OVERLAY_DATA_PARAMS)}`;
 }
 
 /**
