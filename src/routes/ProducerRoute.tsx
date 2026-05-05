@@ -261,9 +261,9 @@ function ProducerPanel() {
     send({ type: "cardReset", resetEpoch: epoch, ts: epoch });
     setFeed((prev) =>
       [
-        ...prev,
         { id: `f${feedIdRef.current++}`, ts: epoch, text: "Cards reset for all guests" },
-      ].slice(-FEED_CAP),
+        ...prev,
+      ].slice(0, FEED_CAP),
     );
   }, [send]);
 

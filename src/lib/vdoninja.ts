@@ -197,6 +197,8 @@ export function buildOverlayDataOnlyUrl(): string {
 export function buildChatOnlyUrl(params: { push: string; label: string }): string {
   const all = [
     ...GUEST_ROOM_PARAMS,
+    ["videodevice", "0"] as const,
+    ["audiodevice", "0"] as const,
     ["push", params.push] as const,
     ["label", params.label] as const,
   ];
