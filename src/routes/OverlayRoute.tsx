@@ -134,7 +134,7 @@ const ChatScreenCard = React.memo(function ChatScreenCard({ sprite }: { sprite: 
   // Grapheme-aware truncation (300 grapheme safety cap).
   const graphemes = Array.from(sprite.message);
   const display = graphemes.length > 300
-    ? graphemes.slice(0, 300).join("\u2026")
+    ? graphemes.slice(0, 300).join("") + "\u2026"
     : sprite.message;
 
   return (
