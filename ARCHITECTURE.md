@@ -106,10 +106,18 @@ The original build spec listed many items as "out of scope for MVP" or "v2". Mos
 | Chat extraction from iframe (Option B) | Built (chat in wrapper panel) |
 | Sound effects on cards | Built (v1.4 SFX system) |
 | More cards (GOAT, FACTS) | WRAP IT UP added in v1.4 |
+| Square camera publish | Built (v1.6, `aspectratio=square` + `contenthint=detail` + 30fps cap) |
 | Vote tallies, MVP picker, scoreboards | Not built (requires server) |
 | Mobile guest support | Never (desktop only) |
 
-## Original VDO.Ninja URL handling
+### Square camera publish (v1.6)
+- Guest iframes publish with `aspectratio=square` (1:1, 1080x1080) instead of 16:9
+- `contenthint=detail` tells the browser to prioritize resolution over smoothness
+- 30fps cap reduces upload bandwidth
+- Only applies to guest iframes. Host publishes normally. Overlay/underlay are data-only.
+- Rationale: OBS uses square cutouts for the 6-guest grid. Publishing 16:9 wasted bandwidth on pixels that were never shown.
+
+### Original VDO.Ninja URL handling
 
 The wrapper preserves all existing URL params and adds itself as a layer:
 

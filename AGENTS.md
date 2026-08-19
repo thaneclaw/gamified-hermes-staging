@@ -44,6 +44,9 @@ src/
     vdoninjaChat.ts           # VDO.Ninja chat plumbing (websocket, DOMParser sanitization)
     sfx.ts                   # SFX system (preloaded, cached, cloned per playback)
     auth.ts                  # Producer panel password gate (localStorage)
+    sanitize.ts              # Shared sanitizeForOverlay (extracted from PlayRoute + ChatRoute)
+    emojiAliases.ts          # Colon-autocomplete emoji aliases
+    linkify.tsx              # URL detection + clickable link rendering in chat
   routes/
     PlayRoute.tsx            # Guest/host/editor wrapper
     UnderlayRoute.tsx        # OBS browser source, beneath camera layers
@@ -117,6 +120,8 @@ Three cards, reset by producer between rounds. STFU (1 use), WRAP IT UP (3 uses)
 **Effective label sync:** `PlayRoute` maintains `effectiveLabel` state + `effectiveLabelRef`, updated on `rosterUpdate`. Local chat messages, card sender identity, emoji sender identity, header display, and featured chat attribution all use `effectiveLabel` instead of the stale URL parameter `identity.label`. This ensures display names update live when the producer changes roster names mid-show.
 
 **SFX:** Card sounds preloaded, cached, cloned per playback. Source files pre-attenuated at 50%. HTML5 volume 0.4. Cache-busting via `SFX_VERSION` (currently `v7`). Plays on underlay, wrapper, and producer. Clone cleanup on both `ended` and `error` events. DEV-only console logging.
+
+**Square camera publish:** Guest iframes publish with `aspectratio=square` (1:1, 1080x1080), `contenthint=detail` (prioritize resolution), and 30fps cap. Saves upload bandwidth since OBS uses square cutouts. Only affects guest iframes — host and overlay are unaffected.
 
 **Buzzer:** Buzz-in panel with 300s auto-off. Producer can clear individual stuck buzzers by clicking the buzzing seat in the buzz board. Crash leaves buzz "on" until manual toggle (producer clear or guest re-toggle).
 
