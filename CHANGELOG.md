@@ -6,13 +6,15 @@ All notable changes to Gamified are documented here. Versions follow the show's 
 
 ## [Unreleased] — staging
 
-### Added
-- **Square camera publish:** guest cameras now publish 1:1 square (`aspectratio=square`) with `contenthint=detail` and 30fps cap. Saves upload bandwidth vs 16:9 since OBS uses square cutouts. Only affects guest iframes, not host or overlay.
-- **OBS Source Record setup guide:** `docs/obs-source-record-setup.md` documents guest ISO recording via OBS Source Record plugin.
+_Nothing pending._
 
 ---
 
 ## [v1.6] — 2026-08-12
+
+### Added
+- **Square camera publish:** guest cameras now publish 1:1 square (`aspectratio=square`) with `contenthint=detail` and 30fps cap. Saves upload bandwidth vs 16:9 since OBS uses square cutouts. Only affects guest iframes, not host or overlay.
+- **OBS Source Record setup guide:** `docs/obs-source-record-setup.md` documents guest ISO recording via OBS Source Record plugin.
 
 ### Added
 - **Two-layer OBS architecture:** overlay system split into `/underlay` (beneath camera layers) and `/overlay` (top-layer, above all sources)

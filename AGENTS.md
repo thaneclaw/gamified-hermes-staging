@@ -107,7 +107,7 @@ Three cards, reset by producer between rounds. STFU (1 use), WRAP IT UP (3 uses)
 
 ## Key systems
 
-**STFU mute:** Dual-flag system (`hostMutedRef` + `stfuMutedRef`) with single circuit-breaker (500ms interval re-asserting `mic: false`). Per-seat mute reasons prevent stacking orphans. SILENCED overlay uses Aria's layered approach (base wash, vignette, pink border ring, label animation). No `mix-blend-mode`.
+**STFU mute:** Dual-flag system (`hostMutedRef` + `stfuMutedRef`) with single circuit-breaker (150ms interval re-asserting `mic: false`). Per-seat mute reasons prevent stacking orphans. SILENCED overlay uses Aria's layered approach (base wash, vignette, pink border ring, label animation). No `mix-blend-mode`.
 
 **STFU sender cooldown:** VDO.Ninja does not echo P2P events back to the sender. Without a local cooldown, the guest who plays STFU could immediately play WRAP IT UP while all other guests were locked. Fix: `startStfuCooldown()` helper is called from both the inbound `onMessage` handler and the local `playCard` function. Cooldown uses absolute expiry time (`cooldownEndsAtRef`) instead of decrementing state, so delayed interval callbacks in OBS CEF can't extend it past 10 real seconds.
 
