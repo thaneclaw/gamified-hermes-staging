@@ -6,7 +6,11 @@ All notable changes to Gamified are documented here. Versions follow the show's 
 
 ## [Unreleased] — staging
 
-_Nothing pending._
+### Added
+- **VDO.Ninja integration deep dive** (`docs/vdo-ninja-integration.md`): iframe API transports, `mic-mute-state` event firing rules, `iframetarget` requirement, codirector topology, postMessage security, advisory vs force mute architecture, `reconcileMic` bidirectional bug history, full event type reference.
+- **OBS/CEF gotchas** (`docs/obs-cef-gotchas.md`): Source Record encoder defaults, audio crackling diagnosis, emoji codepoint compatibility, focus ring fix, chat auto-scroll rule, dual-OBS bandwidth math.
+- **VDO.Ninja quality parameters** (`docs/vdo-ninja-quality-params.md`): full URL parameter research with rationale, rejected alternatives, OBS encoder settings, verification steps.
+- **Mute sync architecture** section added to `ARCHITECTURE.md` with flow diagrams and the three-ref system.
 
 ---
 

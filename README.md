@@ -159,3 +159,12 @@ For recording each guest's camera as a separate ISO feed, see
 [`docs/obs-source-record-setup.md`](./docs/obs-source-record-setup.md).
 Uses the OBS Source Record plugin to capture individual guest streams
 before they're composited into the show output.
+
+### VDO.Ninja integration and OBS gotchas
+
+If you're forking this repo or modifying the VDO.Ninja integration, these
+docs will save you a lot of trial and error:
+
+- [`docs/vdo-ninja-integration.md`](./docs/vdo-ninja-integration.md) — iframe API, data channels, event types, mute sync architecture, postMessage security
+- [`docs/vdo-ninja-quality-params.md`](./docs/vdo-ninja-quality-params.md) — URL parameter research, rationale, OBS encoder settings
+- [`docs/obs-cef-gotchas.md`](./docs/obs-cef-gotchas.md) — OBS/CEF quirks: emoji rendering, focus rings, Source Record encoder defaults, audio crackling diagnosis
