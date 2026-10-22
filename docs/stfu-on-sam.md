@@ -9,6 +9,7 @@
 |---|------|-------|
 | 1 | Self-mute visibility | **SHIPPED Oct 15** — `micState` broadcast on every guest self-toggle (suppressed during force mutes). Producer + host panels show LIVE green / SELF-MUTED amber / MUTED red; host-mute wins display. State is transient like buzz (panel reload loses it until next toggle). |
 | 2 | Pill size | Accepted after episode-size tweak; Lemz may want a final trim after seeing it live. |
+| 2b | Host-mute red darkening (Sam's request, Oct 21) | **PENDING VISUAL REVIEW.** Sam wants the host-mute effects to be a DARKER red so they read clearly against the amber SELF-MUTED state — current host-mute red and self-mute amber can be hard to differentiate at a glance. Applies to: producer seat buttons (`muteSeatActive`), Sam's HostMutePanel rows (`muteRowMuted`), and possibly the SILENCED wash tint on host-mute. Review together with Aria's P1-P3 suggestions (`tasks/deliverables/aria-gamified-design-review-2026-10-20.md` + mockup) — Lemz wants one combined visual pass, nothing actioned until then. |
 | 3 | 4-guest layout support | **DONE Oct 14** — `samVoteThreshold(layout)` (2-of-4 / 3-of-6), shared by wrappers + producer via `vdoninja.ts`. Root cause of the Oct 14 failure was the host link missing `?layout=4` — see "Show link format" below. |
 
 ## Concept
